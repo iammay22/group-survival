@@ -1,0 +1,1031 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="author" content="may22">
+<title>分組求生記</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&family=Press+Start+2P&display=swap">
+<style>
+/* Layout: pixel classroom stage at an integer scale, HUD above, touch joystick in its own strip below (never over the game), chunky pixel-box sheets for dialogs and mini-games. Single deliberate pastel look. */
+:root{
+  --ink:#2b2440; --muted:#655e80; --bg:#d9e1ff; --panel:#fbfaff; --floor:#efe7ff;
+  --peach:#ffb38a; --lilac:#b9a6f2; --mint:#7fd3ae; --bad:#ff6f6f; --good:#2fae7d; --gold:#ffcf4d;
+  --zh:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --px:"Press Start 2P","Courier New",monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--zh);font-size:15px;line-height:1.6;-webkit-tap-highlight-color:transparent;
+  background-image:linear-gradient(rgba(43,36,64,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(43,36,64,.05) 1px,transparent 1px);
+  background-size:16px 16px}
+button{touch-action:manipulation}
+.wrap{max-width:1040px;margin:0 auto;padding-block:12px 20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:10px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.top h1{margin:0;font-size:clamp(24px,5vw,36px);font-weight:900;letter-spacing:.04em;line-height:1.1;text-shadow:3px 3px 0 var(--peach)}
+.top .sub{margin:2px 0 0;color:var(--muted);font-size:14px}
+@media (max-width:520px){.top .sub{display:none}}
+.box{background:var(--panel);border:3px solid var(--ink);box-shadow:4px 4px 0 var(--ink)}
+.game{position:relative;display:flex;flex-direction:column;gap:10px;-webkit-user-select:none;user-select:none}
+.hud{display:flex;flex-direction:column;gap:6px;padding:8px 10px}
+.hrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.timer{font-family:var(--px);font-size:12px;padding:7px 8px;background:var(--gold);border:2px solid var(--ink);font-variant-numeric:tabular-nums;min-width:64px;text-align:center}
+.timer.low{background:var(--bad);color:#fff}
+.slots{display:flex;gap:4px;align-items:center}
+.slot{width:28px;height:38px;border:2px dashed var(--muted);display:grid;place-items:center;background:var(--floor)}
+.slot.on{border-style:solid;border-color:var(--ink);background:#fff}
+.slot img{width:15px;height:24px;image-rendering:pixelated}
+.lbl{font-weight:700;font-size:13px;color:var(--muted)}
+.spacer{flex:1}
+.topic{font-size:13px;font-weight:700;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.sk{display:inline-block;font-size:12px;font-weight:700;padding:1px 7px;border:2px solid var(--ink);background:#fff;line-height:1.5;white-space:nowrap}
+.sk.ok{background:var(--mint)}
+.sk.need{border-style:dashed;color:var(--muted)}
+.btn{font-family:var(--zh);font-weight:900;font-size:15px;color:var(--ink);background:#fff;border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);padding:10px 14px;min-height:46px;cursor:pointer;line-height:1.3;text-align:left}
+.btn:hover{background:var(--floor)}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+.btn:focus-visible,.pick:focus-visible{outline:3px solid var(--lilac);outline-offset:2px}
+.btn.pri{background:var(--peach)} .btn.go{background:var(--mint)}
+.btn.sm{min-height:40px;padding:6px 12px;font-size:14px}
+.btn.big{font-size:20px;min-height:58px;text-align:center;width:100%}
+.btn[disabled]{opacity:.45;cursor:not-allowed;transform:none;box-shadow:3px 3px 0 var(--ink)}
+.stage{position:relative;padding:0;line-height:0;background:#e8c796;display:flex;justify-content:center;overflow:hidden}
+#cv{display:block;max-width:100%;image-rendering:pixelated;image-rendering:crisp-edges;cursor:pointer;touch-action:none}
+.hint{font-size:13px;color:var(--muted);margin:0}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:6px 12px;font-size:13px;line-height:1.4;font-weight:700;pointer-events:none;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis;z-index:3}
+/* joystick strip: sits below the stage, never on top of it */
+.ctrl{display:none;align-items:center;gap:16px;padding:10px 12px}
+@media (pointer:coarse),(max-width:760px){.ctrl{display:flex} .hint{display:none}}
+.joy{width:128px;height:128px;flex:none;position:relative;border:3px solid var(--ink);background:var(--floor);touch-action:none;cursor:pointer;
+  background-image:linear-gradient(var(--lilac),var(--lilac)),linear-gradient(var(--lilac),var(--lilac));background-size:100% 4px,4px 100%;background-position:center;background-repeat:no-repeat}
+.joy i{position:absolute;font-style:normal;font-size:11px;line-height:1;color:var(--muted);pointer-events:none}
+.joy .au{top:6px;left:50%;transform:translateX(-50%)} .joy .ad{bottom:6px;left:50%;transform:translateX(-50%)}
+.joy .al{left:6px;top:50%;transform:translateY(-50%)} .joy .ar{right:6px;top:50%;transform:translateY(-50%)}
+.knob{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;background:var(--peach);border:3px solid var(--ink);box-shadow:2px 2px 0 var(--ink);pointer-events:none}
+.joy.on .knob{background:var(--gold)}
+.ctrl-tip{margin:0;font-size:13px;color:var(--muted);min-width:0;line-height:1.5}
+.ctrl-tip b{color:var(--ink)}
+/* modal */
+.modal{position:fixed;inset:0;z-index:20;background:rgba(43,36,64,.45);display:flex;align-items:flex-end;justify-content:center;
+  padding:12px max(12px,env(safe-area-inset-right,0px)) max(12px,env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));overflow:auto}
+@media (min-width:700px){.modal{align-items:center}}
+.sheet{width:100%;max-width:580px;padding:18px;display:flex;flex-direction:column;gap:12px;max-height:100%;overflow:auto}
+.who{display:flex;gap:14px;align-items:center}
+.who > div{min-width:0}
+.pf{width:60px;height:96px;flex:none;background:var(--floor);border:3px solid var(--ink);display:grid;place-items:center;position:relative}
+.pf img{width:40px;height:64px;image-rendering:pixelated}
+.who h2{margin:0;font-size:20px;font-weight:900;line-height:1.3}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--muted)}
+.say{margin:0;font-size:16px;font-weight:500}
+.clue{margin:0;padding:10px 12px;background:var(--floor);border-left:4px solid var(--lilac);font-size:14px}
+.acts{display:flex;flex-direction:column;gap:8px}
+.acts.row{flex-direction:row;flex-wrap:wrap}
+.tag{display:inline-block;font-size:12px;font-weight:900;padding:2px 8px;border:2px solid var(--ink);margin-right:6px;vertical-align:2px}
+.tag.bad{background:var(--bad);color:#fff} .tag.good{background:var(--good);color:#fff} .tag.mg{background:var(--gold)}
+.rules{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.brief{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:10px 12px;background:#fff;border:2px solid var(--ink);font-size:14px;align-items:center}
+.brief dt{font-weight:900;color:var(--muted);font-size:13px}
+.brief dd{margin:0;display:flex;gap:6px;flex-wrap:wrap}
+/* project */
+.proj{padding:16px;display:flex;flex-direction:column;gap:14px}
+.bars{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:480px){.bars{grid-template-columns:1fr}}
+.bar .bl{display:flex;justify-content:space-between;font-weight:700;font-size:13px}
+.bar .bl b{font-family:var(--px);font-size:11px;font-variant-numeric:tabular-nums}
+.meter{height:16px;border:3px solid var(--ink);background:#fff;margin-top:4px}
+.meter i{display:block;height:100%;width:0;transition:width .5s steps(10)}
+#mP i{background:var(--mint)} #mM i{background:var(--peach)}
+.roundtag{font-family:var(--px);font-size:11px;color:var(--muted);letter-spacing:.05em;line-height:1.6}
+.card{display:flex;flex-direction:column;gap:12px;padding:14px;border:3px solid var(--ink);background:#fff}
+.card h3{margin:0;font-size:19px;font-weight:900;line-height:1.35}
+.card p{margin:0}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media (max-width:560px){.opts{grid-template-columns:1fr}}
+.res{padding:10px 12px;background:var(--floor);font-weight:700}
+.delta{display:flex;gap:8px;flex-wrap:wrap}
+.chip{font-size:12px;font-weight:900;padding:2px 8px;border:2px solid var(--ink);background:#fff}
+.chip.up{background:var(--mint)} .chip.down{background:var(--bad);color:#fff}
+.lesson{padding:10px 12px;border:2px dashed var(--ink);font-size:14px}
+.lesson b{display:block;margin-bottom:2px}
+.tips{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.class{background:#eafaf2;border:3px solid var(--good);padding:12px}
+.class .eyebrow{color:var(--good)}
+.note{font-size:13px;color:var(--muted)}
+/* people picker */
+.picks{display:flex;flex-wrap:wrap;gap:6px}
+.pick{display:flex;align-items:center;gap:6px;font-family:var(--zh);font-weight:700;font-size:13px;color:var(--ink);padding:4px 10px 4px 4px;border:2px solid var(--ink);background:#fff;cursor:pointer;min-height:44px;text-align:left}
+.pick img{width:15px;height:24px;image-rendering:pixelated;flex:none}
+.pick span{display:flex;flex-direction:column;line-height:1.25}
+.pick small{font-size:11px;color:var(--muted);font-weight:700}
+.pick small.ok{color:var(--good)}
+.pick.sel{background:var(--gold)}
+.pick:active{transform:translate(1px,1px)}
+.task{display:flex;flex-direction:column;gap:6px;padding:10px;border:2px solid var(--ink);background:var(--panel)}
+/* schedule */
+.cal{overflow-x:auto;max-width:100%}
+.cal table{border-collapse:collapse;font-size:12px;line-height:1.2}
+.cal th,.cal td{border:1px solid var(--ink);padding:0;text-align:center}
+.cal td{width:19px;height:26px}
+.cal td.busy{background:repeating-linear-gradient(45deg,var(--ink) 0 2px,var(--lilac) 2px 5px)}
+.cal td.free{background:#fff}
+.cal td.free.hit{background:var(--mint)} .cal td.busy.hit{background:var(--bad)}
+.cal th.day{font-weight:900;padding:2px 0;background:var(--floor)}
+.cal th.slotc{height:30px}
+.cal th.slotc button{width:100%;height:100%;min-width:19px;border:0;background:var(--gold);font-family:var(--zh);font-weight:900;font-size:11px;color:var(--ink);cursor:pointer;padding:0}
+.cal th.nm{padding:0 6px 0 2px;text-align:left;white-space:nowrap;font-weight:700;background:var(--floor)}
+.cal th.nm img{width:10px;height:16px;image-rendering:pixelated;vertical-align:-3px;margin-right:3px}
+.tbar{height:12px;border:2px solid var(--ink);background:#fff}
+.tbar i{display:block;height:100%;width:100%;background:var(--bad)}
+/* rush */
+.rushhud{display:flex;justify-content:space-between;font-weight:900;font-variant-numeric:tabular-nums}
+.rush{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;max-width:380px;margin:0 auto}
+.hole{aspect-ratio:1.35;max-width:100%;border:3px solid var(--ink);background:var(--floor);display:grid;overflow:hidden}
+.hole button{border:0;font-family:var(--zh);font-weight:900;font-size:15px;line-height:1.25;cursor:pointer;color:var(--ink);padding:4px;touch-action:manipulation}
+.hole button.t{background:var(--mint)} .hole button.x{background:var(--bad);color:#fff}
+.hole.flash{background:var(--bad)} .hole.yay{background:var(--gold)}
+/* presentation */
+.qte{position:relative;height:48px;border:3px solid var(--ink);background:#fff;cursor:pointer;touch-action:manipulation}
+.qte .zone{position:absolute;top:0;bottom:0;background:var(--mint)}
+.qte .zone b{position:absolute;top:0;bottom:0;left:30%;width:40%;background:var(--good)}
+.qte .cur{position:absolute;top:-7px;bottom:-7px;width:6px;margin-left:-3px;background:var(--ink)}
+.qfb{min-height:1.6em;font-weight:900}
+.grade{font-family:var(--px);font-size:56px;line-height:1;text-shadow:4px 4px 0 var(--peach)}
+.final{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.final > div{min-width:0;flex:1}
+.score{display:grid;grid-template-columns:1fr auto;gap:2px 12px;font-size:14px;padding:10px 12px;background:var(--floor)}
+.score b{font-family:var(--px);font-size:11px;font-variant-numeric:tabular-nums;text-align:right;align-self:center}
+.list{display:flex;flex-direction:column;gap:8px}
+.li{display:flex;gap:10px;align-items:center}
+.li img{width:20px;height:32px;image-rendering:pixelated;flex:none}
+.li > div{min-width:0}
+.dex{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.dx{border:2px solid var(--ink);padding:8px 10px;background:#fff;font-size:13px}
+.dx.lock{background:var(--floor);color:var(--muted);border-style:dashed}
+.dx strong{font-size:15px}
+.dx p{margin:4px 0 0}
+.credit{text-align:center;font-size:12px;color:var(--muted);margin:4px 0 0}
+.credit b{font-family:var(--px);font-size:10px;color:var(--ink);letter-spacing:.05em}
+.pf.bonk{animation:bonk .4s steps(4)}
+@keyframes bonk{0%{transform:translate(0)}25%{transform:translate(-5px,2px) rotate(-6deg)}50%{transform:translate(5px,-2px) rotate(5deg)}75%{transform:translate(-3px,0)}100%{transform:translate(0)}}
+.pop{position:absolute;top:-14px;right:-18px;font-weight:900;font-size:16px;line-height:1.4;background:var(--gold);border:2px solid var(--ink);padding:0 6px;animation:pop .8s ease-out forwards}
+@keyframes pop{0%{transform:scale(.4)}30%{transform:scale(1.2)}100%{transform:scale(1);opacity:0}}
+@media (prefers-reduced-motion:reduce){.pf.bonk,.pop{animation:none}.meter i{transition:none}}
+</style>
+<style>body{margin:0}img{max-width:100%}</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>分組求生記</h1>
+      <p class="sub">期末專題要分組了。走遍教室，找到神隊友、避開雷隊友。</p>
+    </div>
+    <button class="btn sm" id="dexBtn" type="button">組員圖鑑</button>
+  </header>
+
+  <div class="game">
+    <div class="hud box" id="hud">
+      <div class="hrow">
+        <span class="timer" id="timer">75s</span>
+        <div class="slots" id="slots"></div>
+        <span class="spacer"></span>
+        <button class="btn go sm" id="startProj" type="button" disabled>開始做專題</button>
+      </div>
+      <div class="topic" id="topicBar"></div>
+    </div>
+    <div class="stage box" id="stage">
+      <canvas id="cv" aria-label="像素教室，可以走動找組員"></canvas>
+      <div class="toast" id="toast" hidden></div>
+    </div>
+    <div class="ctrl box" id="ctrl">
+      <div class="joy" id="joy" aria-label="移動搖桿"><i class="au">▲</i><i class="ad">▼</i><i class="al">◀</i><i class="ar">▶</i><span class="knob" id="knob"></span></div>
+      <p class="ctrl-tip"><b>拖動搖桿</b>走路，可以斜著走。<br>也可以<b>直接點畫面</b>，會自動繞過桌子走過去。<br>碰到同學就會開始對話。</p>
+    </div>
+    <p class="hint" id="hint">方向鍵或 WASD 移動，也可以直接點畫面，角色會自動繞過桌子走過去。碰到同學就會開始對話。</p>
+    <div class="proj box" id="proj" hidden>
+      <div class="bars">
+        <div class="bar"><div class="bl"><span>報告進度</span><b id="vP">0</b></div><div class="meter" id="mP"><i></i></div></div>
+        <div class="bar"><div class="bl"><span>組內氣氛</span><b id="vM">50</b></div><div class="meter" id="mM"><i></i></div></div>
+      </div>
+      <div class="roundtag" id="roundtag">WEEK 1</div>
+      <div id="card"></div>
+    </div>
+  </div>
+  <p class="credit">遊戲設計 <b>may22</b></p>
+</div>
+
+<div class="modal" id="modal" hidden><div class="sheet box" id="sheet" role="dialog" aria-modal="true"></div></div>
+
+<script>
+/* ================= DATA ================= */
+const HIT='用紙扇敲他的頭', SCOLD='把他唸一頓';
+const SKILLS={research:'資料蒐集',writing:'文案寫作',design:'簡報美編',speaking:'上台口條',data:'數據分析',video:'影片剪輯',tech:'程式技術'};
+const SKILL_LINE={research:'我很會找資料，圖書館資料庫我熟。',writing:'寫報告我還行，以前是校刊社的。',design:'我做簡報很快，排版有點強迫症。',speaking:'上台講話我不怕，辯論社的。',data:'Excel 跟統計我都 OK。',video:'剪片我很熟，有在經營頻道。',tech:'寫程式、架網站可以交給我。'};
+const TOPICS=[
+  {n:'校園外送平台企劃',s:['research','data','design','speaking']},
+  {n:'在地小吃紀錄片',s:['video','research','writing','speaking']},
+  {n:'宿舍省電 App 提案',s:['tech','data','design','speaking']},
+  {n:'社群行銷活動企劃',s:['writing','design','video','data']},
+  {n:'老街文化導覽手冊',s:['research','writing','design','speaking']},
+  {n:'二手書交換網站',s:['tech','design','writing','data']},
+  {n:'學生睡眠習慣調查',s:['data','research','writing','speaking']}
+];
+const SURPRISE={
+  research:'教授追問：「你們這些資料的來源可靠嗎？」',
+  writing:'書面報告被助教退回，說段落邏輯不通順。',
+  design:'看了別組的簡報，你們的投影片顯得好陽春。',
+  speaking:'上台彩排時，教授連問了三個刁鑽問題。',
+  data:'教授突然要求每組附上問卷統計圖表。',
+  video:'規定臨時改了：期末要交一支 3 分鐘影片！',
+  tech:'要展示的網站在上台前一小時當掉了。'
+};
+const BAD = {
+  lazy:{name:'隱形人',tag:'分了工卻什麼都不做',first:'我都可以啊～你們決定就好。',clue:'問他上學期報告做了哪段，他想了很久說「好像有做吧？」',
+    hit:['他揉著頭說「好啦會做」，交了半頁。',3,-6],scold:['他點頭如搗蒜，然後繼續消失。',1,-8],
+    ev:[{t:'第一次分工，他說「我都可以」。兩週過去，他那份什麼都沒交。',o:[['指定一個小而明確的任務，附上截止日',11,2,'任務夠具體，他反而準時交了！'],['默默幫他做掉',6,-6,'進度有了，你累到懷疑人生，他學會繼續躺。']]},
+        {t:'期末前一週，他負責的段落還是一片空白。',o:[['在貢獻表如實記錄，提醒最後要交給教授',10,0,'他嚇到連夜補完，品質普普但有交。'],['直接去跟教授告狀',5,-3,'教授調了他的分數，但你們的工作量沒變少。']]}],
+    lesson:'雷點常常是「責任模糊」。給他小而具體的任務、寫清楚誰在何時交什麼，再用貢獻表留下紀錄。'},
+  tagonly:{name:'已讀機器人',tag:'只有在群組 @ 他才會回',first:'有事群組找我喔！',clue:'你瞄到他的 LINE：未讀 999+，置頂全是遊戲群。',
+    hit:['他說「我真的沒看到啦」，下次還是沒看到。',2,-6],scold:['他回了一張「對不起」貼圖，然後繼續已讀。',1,-7],
+    ev:[{t:'群組討論了半小時，他已讀不回。直到你 @ 他，他才回了一個「+1」。',o:[['訂規則：重要訊息一律 @，24 小時內要回覆確認',11,3,'規則一訂，他每次都乖乖回「收到」。'],['自己決定好再通知他',5,-3,'事情有進展，但他完全不知道方向。']]},
+        {t:'截止前一晚，大家都在等他的檔案，他又消失了。',o:[['事先約好「交檔前一天在群組回報」的規則',10,1,'這次他提早一天就上傳了。'],['狂打他電話',7,-3,'終於接了，他剛睡醒，檔案在凌晨三點才出現。']]}],
+    lesson:'開組第一天就訂溝通規則：多久要回、重要事項一定 @、決議寫進共用筆記，不要讓大家爬訊息。'},
+  actor:{name:'假裝很忙的演員',tag:'做個樣子，其實什麼都沒做',first:'我最近超忙，但我會盡力！',clue:'他的筆電一直開著同一份空白文件，檔名叫「最終版_真的最終」。',
+    hit:['他一臉委屈說「我真的有在弄啊」。',1,-7],scold:['他說「快好了」，三天後還是「快好了」。',1,-6],
+    ev:[{t:'每次問進度他都說「快好了」。三週後打開檔案，只有一個標題。',o:[['改成每週開會分享螢幕，看實際進度',11,1,'藏不住了，他開始每週真的有東西可以給大家看。'],['相信他，再給一週',0,-4,'一週後還是只有標題。']]},
+        {t:'上台前一天，他說投影片「都在雲端」。打開是空資料夾。',o:[['改用共編文件，每個人的修改都有版本紀錄',10,1,'版本紀錄一清二楚，他當晚就補上自己那幾頁。'],['你自己連夜趕出來',7,-6,'簡報救回來了，你的黑眼圈也出來了。']]}],
+    lesson:'「快好了」不是進度。用共編文件看版本紀錄、定期展示實際成果，讓進度看得見。'},
+  busy:{name:'時間黑洞',tag:'怎樣都喬不出時間討論',first:'我週一到週日都滿，但你們先約沒關係～',clue:'他的行事曆有社團、打工、家教、系學會，還有三個行程重疊。',
+    hit:['他說「我真的很忙啦」，然後繼續很忙。',1,-6],scold:['他說「好啦我盡量」，下一次還是不行。',1,-6],
+    ev:[{t:'你們丟了五個開會時段，他每個都說「那天不行欸」。',o:[['改成非同步分工：各自做，在文件留言討論',11,3,'不用硬約時間，他利用零碎時間就把份內的做完了。'],['直接投票，少數服從多數',6,0,'會開成了，但他沒來，事後一頭霧水。']]},
+        {t:'期末彩排，他又說有事不能來。',o:[['請他先錄好自己那段，彩排時大家一起看',10,2,'他錄得很認真，大家還幫他抓到口誤。'],['改到半夜線上彩排',6,-5,'他來了，其他人都快睡著了。']]}],
+    lesson:'時間喬不攏時不要硬約。改用文件留言、錄影、投票表單，讓忙碌的人也能貢獻。'},
+  glass:{name:'玻璃心',tag:'講他幾句就心情低落、退組退選',first:'我會努力的……希望不要拖累大家。',clue:'他說上次分組被說了一句「這樣不行」，難過到退選那門課。',
+    hit:['他眼眶一紅，默默退出群組，然後退選了。',-6,-12,true],scold:['他說「對不起，我還是退組好了」，隔天真的退選了。',-6,-12,true],
+    ev:[{t:'他交出的初稿錯了不少地方，你得給他回饋。',o:[['先說做得好的地方，再具體說哪裡要改',11,5,'他鬆了一口氣，改得比你預期還好。'],['什麼都不說，自己偷偷改掉',4,-2,'他沒學到，下次還是一樣的錯。']]},
+        {t:'期末前他焦慮到傳訊息說：「我好像只會拖累大家，要不要退組？」',o:[['肯定他的付出，一起把剩下的任務拆小',10,6,'他說「謝謝你」，然後穩穩把份內的做完。'],['回他：「那你要退就退啊」',-6,-12,'他真的退了。剩下的工作全落到你們身上。',true]]}],
+    lesson:'批評對「事」不對「人」。先肯定、再具體建議、最後給支持，對方才聽得進去，也不會直接崩潰。'},
+  empty:{name:'空氣成果王',tag:'點子很大，最後什麼成果都沒有',first:'我有好多點子！這次一定要做很大！',clue:'他說過三個創業計畫、兩個 Podcast，目前全都在「規劃中」。',
+    hit:['他說「藝術需要時間」。',1,-6],scold:['他說「你不懂我的願景」。',1,-7],
+    ev:[{t:'他提了超大計畫：要拍微電影、架網站，還要發 500 份問卷。',o:[['把計畫縮成做得完的最小版本，先做出來',11,2,'先做出一版能交的，再慢慢加，最後居然還有時間加分。'],['好啊，全部都做！',2,-3,'計畫很美，時間不夠，每樣都做一半。']]},
+        {t:'期末前一天，他負責的部分「概念很完整」，但沒有任何檔案。',o:[['立刻砍掉不重要的，只交核心成果',9,0,'雖然縮水，但至少有東西可以交。'],['讓他上台用嘴講概念',1,-3,'教授問：「所以成果呢？」全場安靜。']]}],
+    lesson:'想法不等於成果。先做「最小可交付版本」，每個階段都要有看得到的東西。'},
+  deadline:{name:'死線戰士',tag:'永遠拖到最後一刻',first:'放心，我壓力越大效率越高！',clue:'你看到他的作業繳交紀錄：23:58、23:59、23:59。',
+    hit:['他說「還早啦，別緊張」。',1,-6],scold:['他說「我就是最後才有靈感」。',1,-6],
+    ev:[{t:'離截止還有三週，他說「還早啦」，一個字都還沒寫。',o:[['把大死線拆成每週的小死線',11,2,'小死線一個一個過，他每週都有交。'],['讓他自由發揮',2,-2,'自由到最後兩天才開始。']]},
+        {t:'截止前一小時他才傳檔，格式全亂，你們還得整合。',o:[['把「組內截止日」設在真正截止前三天',10,2,'下一次大家都有三天緩衝，整合從容多了。'],['你通宵幫他整合',7,-6,'交出去了，你也陣亡了。']]}],
+    lesson:'拖延的人需要「近一點的死線」。把組內截止日提早，再拆成每週檢查點。'},
+  ghost:{name:'人間蒸發',tag:'做到一半突然失聯',first:'嗨！我加你好友喔～',clue:'同學說他上學期期末前也失聯了兩週，連教授都找不到人。',
+    hit:['你找不到他，扇子揮了個空。',0,-4],scold:['你在群組唸了一大段，他沒讀。',0,-6],
+    ev:[{t:'他突然兩週沒來上課，訊息全部未讀。',o:[['私訊關心他是不是遇到困難',8,5,'原來他家裡出了點事。你們調整分工，他回來後補上了。'],['直接把他的工作分掉',7,-2,'進度保住了，但他回來時完全插不上手。']]},
+        {t:'他終於回來了，但份內的東西一樣都沒做。',o:[['坦白討論他還能負責什麼，重新分配並告知教授',10,2,'他接下最後的整理工作，做得還不錯。'],['當作他不存在',4,-5,'氣氛變得很尷尬，上台時他站在旁邊發呆。']]}],
+    lesson:'失聯先關心，可能真的遇到事情。同時要有備案：重要任務不要只交給一個人。'},
+  boss:{name:'獨裁組長',tag:'聽不進別人意見，全部推翻重做',first:'我高中都當組長，你們跟著我就對了。',clue:'他說上次組員都「能力不夠」，所以最後全部他自己重做。',
+    hit:['他更生氣了，說你們都不專業。',0,-10],scold:['兩個人吵起來，會議直接解散。',-2,-10],
+    ev:[{t:'他把大家寫好的內容全部推翻，說要照他的想法重寫。',o:[['提議用評分標準或投票來決定方向',11,4,'用標準來比，大家都服氣，連他也接受了。'],['算了，聽他的',5,-7,'報告變成他一個人的作品，其他人越來越沒動力。']]},
+        {t:'上台前，他要求全部投影片改成他的風格。',o:[['謝謝他用心，分工：他統一風格，內容各自負責',10,3,'他把風格統一得很漂亮，大家的內容也都保住了。'],['跟他當場吵起來',0,-12,'吵到半夜，什麼都沒改。']]}],
+    lesson:'有主見很好，但決策要透明。用評分標準或投票決定方向，讓每個人都有參與感。'},
+  copy:{name:'複製貼上俠',tag:'整段抄網路、AI 生成直接貼',first:'現在有 AI，報告十分鐘就好啦。',clue:'他上次報告被抓到整段跟維基百科一模一樣。',
+    hit:['他說「大家不都這樣嗎？」',1,-6],scold:['他說「好啦我改幾個字」，真的只改了幾個字。',1,-6],
+    ev:[{t:'他交的段落文筆超好，你一查，是整段複製網路文章。',o:[['請他用自己的話改寫，並標註資料來源',11,1,'改寫後內容反而更貼近你們的題目。'],['睜一隻眼閉一隻眼',-8,-4,'比對系統亮紅燈，全組被扣分。']]},
+        {t:'他整理的參考資料有一半連結打不開，引用的書根本不存在。',o:[['逐條核對，請他補上真實的出處',10,1,'找到真的資料後，論點也更站得住腳。'],['直接交出去',-10,-4,'教授在評語寫：「請說明這本書在哪裡。」']]}],
+    lesson:'抄襲和亂引用會連累整組。工具可以輔助，但內容要自己讀懂、改寫，並標清楚出處。'},
+  credit:{name:'搶功上台王',tag:'什麼都沒做，上台卻最大聲',first:'上台報告交給我，我口條很好！',clue:'他說自己「最擅長收尾」，但說不出上次收了什麼尾。',
+    hit:['他說「上台也是一種貢獻啊」。',1,-7],scold:['他說「你就是嫉妒我口才好」。',0,-8],
+    ev:[{t:'他什麼都沒做，卻搶著要一個人上台講全部。',o:[['上台時每個人講自己負責的部分',10,4,'每個人都講到自己做的東西，教授聽得很清楚。'],['好吧，讓他講',3,-7,'他講錯了好幾個你寫的數據。']]},
+        {t:'教授提問時，他說「這部分都是我做的」。',o:[['事後找他談，並在報告附上分工表',9,2,'分工表一附，誰做了什麼一清二楚。'],['當場拆穿他',3,-10,'場面非常尷尬，教授默默扣了全組台風分。']]}],
+    lesson:'在報告裡附上分工與貢獻表，誰做了什麼一目了然，也保護認真的人。'},
+  negative:{name:'負能量抱怨王',tag:'一直抱怨，把大家都拖下水',first:'這門課好爛喔，分組好麻煩。',clue:'每次開會前十分鐘，他都在抱怨教授、抱怨題目、抱怨天氣。',
+    hit:['他說「看吧，這組也好爛」。',0,-8],scold:['他抱怨得更大聲了。',0,-9],
+    ev:[{t:'開會變成抱怨大會，連認真的組員都開始不想做了。',o:[['每次開會先訂議程，抱怨限時三分鐘',10,6,'抱怨完就開工，會議效率翻倍。'],['跟著一起抱怨',0,-8,'抱怨得很開心，進度是零。']]},
+        {t:'他說：「反正做再好，分數也一樣。」',o:[['讓他負責他擅長、有興趣的部分',10,5,'交給他擅長的事，他居然做得很投入。'],['不理他',3,-4,'他越來越邊緣，最後真的什麼都不做。']]}],
+    lesson:'負面情緒會傳染，認真的人看到別人擺爛也會想放棄（心理學叫「傻瓜效應」）。用議程把會議拉回正事，給他擅長的任務。'}
+};
+const GOOD = {
+  planner:{name:'分工大師',tag:'很會分配工作',first:'我們先把要做的事列出來，再看誰擅長什麼？',clue:'他的筆記本裡畫著一張小小的甘特圖。',
+    acts:['他把報告拆成好幾個任務，依照每個人的專長分配，寫上截止日。','他發現有人工作量太重，主動把任務重新平衡。'],
+    tips:['先拆任務，再依專長分配。','每個任務寫清楚負責人和截止日。','分工要公平，也讓大家有挑選的機會。'],p:15,m:4},
+  pro:{name:'公私分明',tag:'對事不對人',first:'先把報告做好，結束再一起去吃宵夜！',clue:'他跟室友同組，照樣準時交、照樣直接給回饋。',
+    acts:['朋友遲交，他還是客氣地提醒截止日。','討論時意見不同，他只談內容，下課照樣一起吃飯。'],
+    tips:['對事不對人，意見不同就討論內容。','朋友也要守截止日。','不翻舊帳，吵完就回到工作上。'],p:13,m:5},
+  mood:{name:'氣氛製造機',tag:'會帶動氣氛',first:'我帶了餅乾！開會要有點心才有動力～',clue:'他主持的會議從來沒冷場過。',
+    acts:['大家卡關時，他講了個冷笑話，然後提了一個新方向。','他在群組幫每個人的成果寫了一句具體的稱讚。'],
+    tips:['具體稱讚隊友的付出，不只說「讚」。','卡關時先休息一下，再換個角度想。','聽到新點子先說「好欸」，再說「但是」。'],p:10,m:11},
+  reliable:{name:'使命必達',tag:'有辦法把事情都做好',first:'我負責的部分，我一定會做完。',clue:'他的作業從沒遲交過，而且通常提早兩天。',
+    acts:['他提早兩天交了自己的部分，還附上檢查清單。','他發現自己有一段來不及，提早一週就跟大家說。'],
+    tips:['答應的事就做到。','做不到要提早說，不要拖到最後。','交出去前，自己先檢查一遍。'],p:16,m:4},
+  solo:{name:'一人成軍',tag:'自己一個人把整組的事做完',first:'沒關係，我可以全部做。',clue:'他上學期一個人做完整組報告，最後累到生病。',
+    acts:['他又熬夜把大家的部分都做完了。報告很漂亮，但他看起來好累。','你提議由他負責審稿，大家的部分自己做，他終於睡了個好覺。'],
+    tips:['能力強很棒，但要把機會分給別人。','全部自己扛會累壞，組員也學不到東西。','可以改當「審稿把關」的角色，帶著大家一起變強。'],p:19,m:-3},
+  tracker:{name:'進度追蹤者',tag:'讓進度看得見',first:'我建好共用資料夾跟待辦清單了！',clue:'他會在每週一的群組貼上「本週進度」。',
+    acts:['他每週一在群組貼進度表，誰卡住一看就知道。','他提早發現有一段沒人負責，馬上提出來。'],
+    tips:['用共用文件和待辦清單，不靠記憶。','每週固定回報一次進度。','發現問題早點說，不要等到最後。'],p:13,m:5},
+  designer:{name:'簡報美編神',tag:'把內容變得好懂',first:'內容你們寫，排版交給我！',clue:'他的簡報字型和配色一路統一，每頁都很清楚。',skill:'design',
+    acts:['他把大家的文字整理成一頁一個重點的簡報。','他把一大段數字變成一張圖表，教授點頭了。'],
+    tips:['一頁只放一個重點。','字型、顏色要統一。','能用圖表說的，就不要塞一堆字。'],p:13,m:4},
+  listener:{name:'傾聽協調者',tag:'讓每個人都被聽見',first:'每個人的想法都說說看，我來整理。',clue:'吵架的時候，大家都會找他評評理。',
+    acts:['他讓最安靜的組員先發言，結果那位提了最好的點子。','兩個人吵起來，他先把雙方的重點整理出來，大家就有共識了。'],
+    tips:['讓每個人都有發言的機會。','先整理共識，再做決定。','起衝突時，先聽完再回應。'],p:11,m:9}
+};
+const NAMES=['阿哲','小雯','柏翰','佳穎','宇軒','欣妤','冠廷','品妍','家豪','詩涵','承恩','子晴','俊宏','雅婷','昱辰','芷若','睿哲','亭妤','彥廷','思妤'];
+const APPROACH=['嗨嗨！你有組了嗎？要不要一起？','欸欸，我看你好像很靠譜，一組嗎？','同學！我們缺人，你要來嗎？','那個……可以跟你一組嗎？'];
+
+const TASK_DESC={research:'找文獻、蒐集資料',writing:'寫書面報告',design:'做簡報投影片',speaking:'上台報告',data:'做問卷和統計',video:'拍攝和剪片',tech:'寫程式、做網站'};
+const RUSH_T=['寫結論','校稿','做圖表','整理文獻','排版','對數據','做封面','寫摘要','改錯字','補引用'];
+const RUSH_X=['滑IG','追劇','打電動','睡回籠覺','逛蝦皮','看貓影片'];
+const DAYS=['一','二','三','四','五'],SLOTN=['早','午','晚'];
+
+/* ================= HELPERS ================= */
+const $=id=>document.getElementById(id);
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const skChip=(k,cls='')=>`<span class="sk ${cls}">${esc(SKILLS[k])}</span>`;
+
+/* ================= WORLD ================= */
+const W=320,H=192;
+const cv=$('cv'),ctx=cv.getContext('2d');
+let VW=320,VH=192,SC=3;
+const desks=[];
+[24,80,136,192,248].forEach(x=>[64,104,144].forEach(y=>desks.push({x,y,w:44,h:12})));
+const tdesk={x:132,y:36,w:56,h:12,teacher:true};
+const solids=[...desks,tdesk];
+function blocked(x,y){
+  if(x<10||x>310||y<34||y>188)return true;
+  for(const r of solids){ if(x+4>r.x&&x-4<r.x+r.w&&y>r.y&&y-3<r.y+r.h)return true; }
+  return false;
+}
+function freeSpot(){for(let i=0;i<200;i++){const x=rnd(16,304),y=rnd(54,184);if(!blocked(x,y))return{x,y}}return{x:160,y:184}}
+
+/* ---------- walk grid + pathfinding (taps route around desks) ---------- */
+const CELL=4,GC=W/CELL,GR=H/CELL;
+const walk=new Uint8Array(GC*GR);
+for(let r=0;r<GR;r++)for(let c=0;c<GC;c++)walk[r*GC+c]=blocked(c*CELL+2,r*CELL+2)?0:1;
+const cellOf=(x,y)=>[clamp(Math.floor(x/CELL),0,GC-1),clamp(Math.floor(y/CELL),0,GR-1)];
+function lineClear(ax,ay,bx,by){const n=Math.ceil(Math.hypot(bx-ax,by-ay)/1.5);for(let i=1;i<=n;i++){if(blocked(ax+(bx-ax)*i/n,ay+(by-ay)*i/n))return false}return true}
+function findPath(sx,sy,tx,ty){
+  if(!blocked(tx,ty)&&lineClear(sx,sy,tx,ty))return[{x:tx,y:ty}];
+  const N=GC*GR;const [sc,sr]=cellOf(sx,sy);let [tc,tr]=cellOf(tx,ty);
+  if(!walk[tr*GC+tc]){let best=-1,bd=1e9;for(let i=0;i<N;i++)if(walk[i]){const d=(i%GC-tc)**2+(((i/GC)|0)-tr)**2;if(d<bd){bd=d;best=i}}if(best<0)return[];tc=best%GC;tr=(best/GC)|0}
+  const start=sr*GC+sc,goal=tr*GC+tc;const prev=new Int32Array(N).fill(-1);const q=new Int32Array(N);let h=0,t=0;q[t++]=start;prev[start]=start;
+  while(h<t){const cur=q[h++];if(cur===goal)break;const c=cur%GC,r=(cur/GC)|0;
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){if(!dr&&!dc)continue;const nc=c+dc,nr=r+dr;if(nc<0||nr<0||nc>=GC||nr>=GR)continue;const ni=nr*GC+nc;
+      if(prev[ni]!==-1||!walk[ni])continue;if(dc&&dr&&(!walk[r*GC+nc]||!walk[nr*GC+c]))continue;prev[ni]=cur;q[t++]=ni}}
+  if(prev[goal]===-1)return[];
+  const pts=[];for(let i=goal;i!==start;i=prev[i])pts.push({x:(i%GC)*CELL+2,y:((i/GC)|0)*CELL+2});pts.reverse();
+  if(pts.length&&!blocked(tx,ty)&&lineClear(pts[pts.length-1].x,pts[pts.length-1].y,tx,ty))pts.push({x:tx,y:ty});
+  const out=[];let ax=sx,ay=sy,i=0;
+  while(i<pts.length){let j=pts.length-1;while(j>i&&!lineClear(ax,ay,pts[j].x,pts[j].y))j--;out.push(pts[j]);ax=pts[j].x;ay=pts[j].y;i=j+1}
+  return out;
+}
+function setDir(e,dx,dy){if(Math.abs(dx)>Math.abs(dy))e.dir=dx<0?'left':'right';else if(dy)e.dir=dy<0?'up':'down'}
+/* one small step with corner sliding, so you glide around desk corners instead of sticking */
+function slide(e,dx,dy){
+  let moved=false;
+  if(dx){
+    if(!blocked(e.x+dx,e.y)){e.x+=dx;moved=true}
+    else if(Math.abs(dy)<.01){for(let k=1;k<=5&&!moved;k++)for(const s of[-1,1]){if(!blocked(e.x+dx,e.y+s*k)){const st=s*Math.min(Math.abs(dx),k);if(!blocked(e.x,e.y+st)){e.y+=st;moved=true;break}}}}
+  }
+  if(dy){
+    if(!blocked(e.x,e.y+dy)){e.y+=dy;moved=true}
+    else if(Math.abs(dx)<.01){for(let k=1;k<=6&&!moved;k++)for(const s of[-1,1]){if(!blocked(e.x+s*k,e.y+dy)){const st=s*Math.min(Math.abs(dy),k);if(!blocked(e.x+st,e.y)){e.x+=st;moved=true;break}}}}
+  }
+  return moved;
+}
+function stepMove(e,dx,dy){
+  const n=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dy))/1.2));let moved=false;
+  for(let i=0;i<n;i++)if(slide(e,dx/n,dy/n))moved=true;
+  setDir(e,dx,dy);return moved;
+}
+function followPath(e,speed,dt){
+  if(!e.path||!e.path.length)return false;
+  const wp=e.path[0];const vx=wp.x-e.x,vy=wp.y-e.y,d=Math.hypot(vx,vy),step=speed*dt;
+  if(d<=step){if(!blocked(wp.x,wp.y)){e.x=wp.x;e.y=wp.y}setDir(e,vx,vy);e.path.shift();return true}
+  const ok=stepMove(e,vx/d*step,vy/d*step);
+  if(!ok){e.stuck=(e.stuck||0)+dt;if(e.stuck>.35){e.path=null;e.stuck=0}}else e.stuck=0;
+  return ok;
+}
+
+const bg=document.createElement('canvas');bg.width=W;bg.height=H;
+function drawBG(){
+  const b=bg.getContext('2d');
+  b.fillStyle='#e8c796';b.fillRect(0,0,W,H);
+  for(let y=28;y<H;y+=8){b.fillStyle='#d8b27e';b.fillRect(0,y,W,1);const off=((y/8)%2)*24;for(let x=off;x<W;x+=48){b.fillRect(x,y,1,8)}}
+  b.fillStyle='#bfe0ee';b.fillRect(0,0,W,28);
+  b.fillStyle='#a9d1e3';for(let x=0;x<W;x+=8)b.fillRect(x,0,1,26);
+  b.fillStyle='#6f9bb3';b.fillRect(0,26,W,3);
+  [[14,5],[262,5]].forEach(([x,y])=>{b.fillStyle='#ffffff';b.fillRect(x,y,44,17);b.fillStyle='#e6f7ff';b.fillRect(x+2,y+2,40,13);b.fillStyle='#ffffff';b.fillRect(x+21,y,2,17);b.fillStyle='#fff3b0';b.fillRect(x+4,y+4,6,3)});
+  b.fillStyle='#8a5a3a';b.fillRect(98,3,124,22);b.fillStyle='#2f5d50';b.fillRect(100,5,120,18);
+  b.fillStyle='#e9f1ec';b.font='700 9px "Noto Sans TC",sans-serif';b.textBaseline='top';
+  b.fillText(S?`期末專題 ${S.size}人一組`:'期末專題',110,8);
+  b.fillStyle='#ffd6e0';b.fillRect(204,9,8,1);b.fillRect(204,12,6,1);b.fillRect(204,15,9,1);
+  b.fillStyle='#c48a5a';b.fillRect(100,23,120,2);
+  b.fillStyle='#2b2440';b.fillRect(236,7,12,12);b.fillStyle='#fff';b.fillRect(237,8,10,10);b.fillStyle='#2b2440';b.fillRect(242,9,1,5);b.fillRect(242,13,3,1);
+  b.fillStyle='#c46a3a';b.fillRect(298,40,10,9);b.fillStyle='#4fae6e';b.fillRect(296,30,6,10);b.fillRect(302,27,6,13);b.fillStyle='#3d9a5c';b.fillRect(300,33,3,7);
+}
+function drawDesk(c,d){
+  if(d.teacher){c.fillStyle='#8a4f2b';c.fillRect(d.x,d.y+2,d.w,d.h);c.fillStyle='#b8733f';c.fillRect(d.x,d.y,d.w,6);c.fillStyle='#fff';c.fillRect(d.x+6,d.y+1,8,3);c.fillStyle='#ff9aa8';c.fillRect(d.x+40,d.y+1,6,4);return}
+  c.fillStyle='rgba(43,36,64,.15)';c.fillRect(d.x+2,d.y+d.h,d.w-2,3);
+  c.fillStyle='#9a6a40';c.fillRect(d.x+1,d.y+4,2,d.h-2);c.fillRect(d.x+d.w-3,d.y+4,2,d.h-2);
+  c.fillStyle='#d9a066';c.fillRect(d.x,d.y,d.w,7);c.fillStyle='#ecbb84';c.fillRect(d.x,d.y,d.w,2);
+  c.fillStyle='#fff';c.fillRect(d.x+6,d.y+2,7,4);c.fillStyle='#9ad0ff';c.fillRect(d.x+28,d.y+2,8,4);
+  c.fillStyle='#8696cf';c.fillRect(d.x+6,d.y+d.h+3,9,3);c.fillRect(d.x+28,d.y+d.h+3,9,3);
+  c.fillStyle='#6576b5';c.fillRect(d.x+6,d.y+d.h+6,1,2);c.fillRect(d.x+14,d.y+d.h+6,1,2);c.fillRect(d.x+28,d.y+d.h+6,1,2);c.fillRect(d.x+36,d.y+d.h+6,1,2);
+}
+
+const SKIN=['#f8d5b8','#eec09a','#d9a27a','#f5dcc6'],HAIR=['#2b2233','#5a3a2a','#8a5a3a','#3a2f5a','#c46a3a','#1e1e28','#d9b26a'],
+SHIRT=['#9ad0ff','#ffb3c7','#b9a6f2','#7fd3ae','#ffd166','#ff9f7a','#a7e3f0','#c9e78a','#f2a6e8'],PANTS=['#3d4a7a','#4a4a55','#6b5a8a','#2f5a5a','#5a4a3a'];
+function randLook(){return{skin:pick(SKIN),hair:pick(HAIR),shirt:pick(SHIRT),pants:pick(PANTS),style:Math.floor(Math.random()*3),glasses:Math.random()<.25}}
+function drawChar(c,x,y,L,step,dir,moving){
+  const ox=Math.round(x)-5,oy=Math.round(y)-16;const r=(px,py,w,h,col)=>{c.fillStyle=col;c.fillRect(ox+px,oy+py,w,h)};
+  r(1,15,8,1,'rgba(43,36,64,.2)');
+  const st=moving?Math.floor(step)%2:0;
+  r(3,12,2,st?2:3,L.pants);r(5,12,2,st?3:2,L.pants);
+  r(2,8,6,4,L.shirt);r(1,8,1,3,L.shirt);r(8,8,1,3,L.shirt);r(1,11,1,1,L.skin);r(8,11,1,1,L.skin);
+  r(2,2,6,6,L.skin);
+  r(2,1,6,2,L.hair);r(1,2,1,3,L.hair);r(8,2,1,3,L.hair);
+  if(L.style===1){r(1,2,1,7,L.hair);r(8,2,1,7,L.hair)}
+  if(L.style===2){r(4,0,2,1,L.hair)}
+  if(dir==='up'){r(2,2,6,5,L.hair);return}
+  const e='#2b2440';
+  if(dir==='left'){r(3,5,1,1,e);r(5,5,1,1,e)}else if(dir==='right'){r(4,5,1,1,e);r(6,5,1,1,e)}else{r(3,5,1,1,e);r(6,5,1,1,e)}
+  if(L.glasses&&dir==='down'){r(2,4,6,1,'#2b2440')}
+  r(2,6,1,1,'#ff9aa8');r(7,6,1,1,'#ff9aa8');
+}
+const pcache=new Map();
+function portrait(L){
+  const k=JSON.stringify(L);if(pcache.has(k))return pcache.get(k);
+  const c=document.createElement('canvas');c.width=10;c.height=16;drawChar(c.getContext('2d'),5,16,L,0,'down',false);
+  const u=c.toDataURL();pcache.set(k,u);return u;
+}
+const ICONS={q:['111','001','010','000','010'],x:['1','1','1','0','1'],h:['01010','11111','11111','01110','00100']};
+function drawIcon(c,x,y,kind,col){
+  const m=ICONS[kind],w=m[0].length;const bx=Math.round(x-(w+4)/2),by=Math.round(y);
+  c.fillStyle='#2b2440';c.fillRect(bx,by,w+4,9);c.fillStyle='#fff';c.fillRect(bx+1,by+1,w+2,7);
+  c.fillStyle=col;m.forEach((row,j)=>[...row].forEach((v,i)=>{if(v==='1')c.fillRect(bx+2+i,by+2+j,1,1)}));
+}
+
+/* ================= STATE ================= */
+const PLAYER_LOOK={skin:'#f8d5b8',hair:'#2b2233',shirt:'#ff9f7a',pants:'#3d4a7a',style:0,glasses:false};
+const TEACHER_LOOK={skin:'#eec09a',hair:'#a8a8b8',shirt:'#6f7fb8',pants:'#4a4a55',style:0,glasses:true};
+const SPEED=64;
+let S=null;
+let dex=new Set();
+try{dex=new Set(JSON.parse(localStorage.getItem('gs-dex')||'[]'))}catch(e){}
+function saveDex(){try{localStorage.setItem('gs-dex',JSON.stringify([...dex]))}catch(e){}}
+
+function newGame(){
+  const size=3+Math.floor(Math.random()*4);
+  const need=size-1;
+  const topic=pick(TOPICS);
+  const req=topic.s.slice(0,Math.min(4,size));
+  const total=Math.min(20,8+size*2);
+  const goodN=Math.round(total*.34);
+  const badKeys=shuffle(Object.keys(BAD)).slice(0,total-goodN),goodKeys=shuffle(Object.keys(GOOD)).slice(0,goodN);
+  const skillPool=shuffle([...req,...req,...Array.from({length:total},()=>pick(Object.keys(SKILLS)))]).slice(0,total);
+  const names=shuffle(NAMES);
+  const npcs=shuffle([...badKeys.map(k=>({k,bad:true})),...goodKeys.map(k=>({k,bad:false}))]).map((o,i)=>{const p=freeSpot();
+    const fixed=!o.bad&&GOOD[o.k].skill;return{
+    id:i,name:names[i],key:o.k,bad:o.bad,skill:fixed||skillPool[i],look:randLook(),x:p.x,y:p.y,path:null,dir:'down',moving:false,step:0,state:'wander',cd:0,talked:false,wait:rnd(0,1.5),stuck:0,appT:0,repath:0,gone:false,fixed:0}});
+  S={phase:'intro',time:0,size,need,topic,req,mySkill:pick(Object.keys(SKILLS)),timeLeft:35+14*need,npcs,
+    player:{x:160,y:182,dir:'up',moving:false,step:0,path:null,chase:null,repath:0},team:[],trail:[{x:160,y:182,dir:'up'}],approachIn:8,encCd:0,P:0,M:50,queue:[],last:performance.now(),k:1.8/need,mark:null};
+  renderSlots();updTimer();renderTopic();drawBG();
+}
+const keys={};
+
+/* ================= SIZING (integer pixel scale, joystick strip below) ================= */
+function setup(){
+  const stage=$('stage');const cw=stage.clientWidth||320;
+  const vh=(window.visualViewport?visualViewport.height:innerHeight);
+  const ctrl=$('ctrl');const ctrlH=getComputedStyle(ctrl).display==='none'||$('stage').hidden?0:ctrl.offsetHeight+10;
+  const availH=Math.max(200,vh-$('hud').offsetHeight-ctrlH-40);
+  let s=clamp(Math.floor(cw/250),2,4);
+  while(s>2&&availH/s<120)s--;
+  SC=s;VW=Math.min(320,Math.floor(cw/s));VH=clamp(Math.floor(availH/s),110,192);
+  cv.width=VW;cv.height=VH;cv.style.width=VW*s+'px';cv.style.height=VH*s+'px';
+}
+window.addEventListener('resize',setup);
+window.visualViewport&&visualViewport.addEventListener('resize',setup);
+function modalOpen(){return !$('modal').hidden}
+
+/* ================= UPDATE ================= */
+function update(dt){
+  S.time+=dt;
+  const live=S.phase==='recruit'&&!modalOpen();
+  const p=S.player;
+  if(live){
+    S.timeLeft-=dt;if(S.timeLeft<=0){S.timeLeft=0;updTimer();timeUp();return}
+    updTimer();
+    let ix=0,iy=0;
+    if(keys.l)ix--;if(keys.r)ix++;if(keys.u)iy--;if(keys.d)iy++;
+    if(joy.on&&(joy.x||joy.y)){ix=joy.x;iy=joy.y}
+    const mag=Math.min(1,Math.hypot(ix,iy));
+    if(mag>.01){
+      p.path=null;p.chase=null;S.mark=null;
+      const n=Math.hypot(ix,iy);p.moving=stepMove(p,ix/n*mag*SPEED*dt,iy/n*mag*SPEED*dt);
+    }else if(p.path){
+      if(p.chase){p.repath-=dt;if(p.repath<=0){p.repath=.3;p.path=findPath(p.x,p.y,p.chase.x,p.chase.y+1)}}
+      p.moving=followPath(p,SPEED,dt);
+      if(!p.path||!p.path.length){p.path=null;S.mark=null}
+    }else p.moving=false;
+    if(p.moving){p.step+=dt*8;const l=S.trail[0];if(Math.hypot(p.x-l.x,p.y-l.y)>=1){S.trail.unshift({x:p.x,y:p.y,dir:p.dir});if(S.trail.length>120)S.trail.pop()}}
+    if(S.encCd>0)S.encCd-=dt;
+    S.approachIn-=dt;
+    if(S.approachIn<=0){S.approachIn=rnd(8,13);const c=S.npcs.filter(n=>n.state==='wander'&&n.cd<=0&&!n.approached);if(c.length&&S.team.length<S.need){const n=pick(c);n.state='approach';n.appT=9;n.path=null}}
+  }
+  const ease=1-Math.exp(-14*dt);
+  S.npcs.forEach(n=>{
+    if(n.gone)return;
+    if(n.state==='follow'){
+      const i=S.team.indexOf(n);const tp=S.trail[Math.min(S.trail.length-1,(i+1)*11)];
+      const dx=tp.x-n.x,dy=tp.y-n.y;n.moving=Math.hypot(dx,dy)>.5;n.x+=dx*ease;n.y+=dy*ease;if(n.moving){n.step+=dt*8;setDir(n,dx,dy)}
+      return;
+    }
+    if(!live)return;
+    if(n.cd>0)n.cd-=dt;
+    if(n.state==='approach'){
+      n.appT-=dt;if(n.appT<=0){n.state='wander';n.approached=true;n.path=null;return}
+      n.repath-=dt;if(n.repath<=0||!n.path||!n.path.length){n.repath=.5;n.path=findPath(n.x,n.y,p.x,p.y)}
+      n.moving=followPath(n,42,dt);
+    }else{
+      if(n.wait>0){n.wait-=dt;n.moving=false}
+      else if(n.path&&n.path.length){n.moving=followPath(n,24,dt);if(!n.path||!n.path.length){n.path=null;n.wait=rnd(.8,2.8)}}
+      else{const s=freeSpot();n.path=findPath(n.x,n.y,s.x,s.y);if(!n.path.length){n.path=null;n.wait=.6}}
+    }
+    if(n.moving)n.step+=dt*6;
+    if(S.encCd<=0&&n.cd<=0&&Math.hypot(p.x-n.x,p.y-n.y)<12){openEncounter(n,n.state==='approach')}
+  });
+  if(S.mark)S.mark.t+=dt;
+}
+function cam(){const px=Math.round(S.player.x),py=Math.round(S.player.y);return[clamp(px-(VW>>1),0,W-VW),clamp(py-(VH>>1)+8,0,H-VH)]}
+function render(){
+  const p=S.player;const [camX,camY]=cam();
+  ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,VW,VH);ctx.translate(-camX,-camY);
+  ctx.drawImage(bg,0,0);
+  if(S.mark){const m=S.mark,k=Math.floor(m.t*6)%2;ctx.fillStyle='#ff6f6f';ctx.fillRect(Math.round(m.x)-3-k,Math.round(m.y)-1,2,2);ctx.fillRect(Math.round(m.x)+1+k,Math.round(m.y)-1,2,2);ctx.fillRect(Math.round(m.x)-1,Math.round(m.y)-3-k,2,2);ctx.fillRect(Math.round(m.x)-1,Math.round(m.y)+1+k,2,2)}
+  const list=[];
+  solids.forEach(d=>list.push({y:d.y+d.h,f:()=>drawDesk(ctx,d)}));
+  list.push({y:36,f:()=>drawChar(ctx,160,36,TEACHER_LOOK,0,'down',false)});
+  S.npcs.forEach(n=>{if(!n.gone)list.push({y:n.y,f:()=>drawChar(ctx,n.x,n.y,n.look,n.step,n.dir,n.moving)})});
+  list.push({y:p.y+.1,f:()=>drawChar(ctx,p.x,p.y,PLAYER_LOOK,p.step,p.dir,p.moving)});
+  list.sort((a,b)=>a.y-b.y).forEach(o=>o.f());
+  const bob=Math.floor(S.time*3)%2;
+  S.npcs.forEach(n=>{if(n.gone)return;
+    if(n.state==='approach')drawIcon(ctx,n.x,n.y-28-bob,'x','#ff6f6f');
+    else if(n.state==='follow')drawIcon(ctx,n.x,n.y-27,'h','#ff6f8a');
+    else if(!n.talked)drawIcon(ctx,n.x,n.y-28-bob,'q','#6b5ab8');
+  });
+  const px=Math.round(p.x),py=Math.round(p.y);
+  ctx.fillStyle='#ffcf4d';ctx.fillRect(px-2,py-22-bob,5,2);ctx.fillRect(px-1,py-20-bob,3,1);ctx.fillRect(px,py-19-bob,1,1);
+}
+function loop(now){
+  const dt=Math.min(.05,Math.max(0,(now-S.last)/1000));S.last=now;
+  if(S.phase==='intro'||S.phase==='recruit'||S.phase==='dex'){update(dt);render()}
+  requestAnimationFrame(loop);
+}
+
+/* ================= INPUT ================= */
+const KM={ArrowLeft:'l',a:'l',A:'l',ArrowRight:'r',d:'r',D:'r',ArrowUp:'u',w:'u',W:'u',ArrowDown:'d',s:'d',S:'d'};
+addEventListener('keydown',e=>{
+  if(S.qte&&(e.key===' '||e.key==='Enter')){e.preventDefault();S.qte();return}
+  if(modalOpen())return;const k=KM[e.key];if(k&&S.phase==='recruit'){keys[k]=true;if(e.key.startsWith('Arrow'))e.preventDefault()}});
+addEventListener('keyup',e=>{const k=KM[e.key];if(k)keys[k]=false});
+addEventListener('blur',clearKeys);
+const joy={on:false,x:0,y:0,id:null};
+const J=$('joy'),KN=$('knob');
+function joyMove(e){
+  const r=J.getBoundingClientRect(),R=r.width/2-12;
+  let dx=(e.clientX-r.left-r.width/2)/R,dy=(e.clientY-r.top-r.height/2)/R;const m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m}
+  const dead=m<.18;joy.x=dead?0:dx;joy.y=dead?0:dy;
+  KN.style.transform=`translate(${Math.round(dx*(r.width/2-28))}px,${Math.round(dy*(r.height/2-28))}px)`;
+}
+function joyEnd(){joy.on=false;joy.x=joy.y=0;KN.style.transform='';J.classList.remove('on')}
+J.addEventListener('pointerdown',e=>{e.preventDefault();if(S.phase!=='recruit'||modalOpen())return;joy.on=true;joy.id=e.pointerId;J.classList.add('on');try{J.setPointerCapture(e.pointerId)}catch(_){}joyMove(e)});
+J.addEventListener('pointermove',e=>{if(joy.on&&e.pointerId===joy.id){e.preventDefault();joyMove(e)}});
+['pointerup','pointercancel','lostpointercapture'].forEach(t=>J.addEventListener(t,joyEnd));
+J.addEventListener('contextmenu',e=>e.preventDefault());
+function clearKeys(){for(const k in keys)keys[k]=false;joyEnd()}
+cv.addEventListener('pointerdown',e=>{
+  if(S.phase!=='recruit'||modalOpen())return;
+  const r=cv.getBoundingClientRect();const [camX,camY]=cam();
+  const x=(e.clientX-r.left)/r.width*VW+camX,y=(e.clientY-r.top)/r.height*VH+camY;
+  const hit=S.npcs.find(n=>!n.gone&&n.state!=='follow'&&Math.abs(n.x-x)<9&&y>n.y-20&&y<n.y+4);
+  const p=S.player;
+  if(hit){hit.cd=0;p.chase=hit;p.repath=.3;p.path=findPath(p.x,p.y,hit.x,hit.y+1);S.mark=null}
+  else{p.chase=null;p.path=findPath(p.x,p.y,x,y);S.mark={x,y,t:0}}
+});
+
+/* ================= HUD ================= */
+function covered(){const set=new Set([S.mySkill]);S.team.forEach(m=>{if(!m.gone)set.add(m.skill)});return set}
+function renderTopic(){
+  const c=covered();
+  $('topicBar').innerHTML=`<span>題目：${esc(S.topic.n)}</span><span class="lbl">需要</span>${S.req.map(k=>skChip(k,c.has(k)?'ok':'need')).join('')}`;
+}
+function renderSlots(){
+  $('slots').innerHTML=Array.from({length:S.need},(_,i)=>{const m=S.team[i];return m?`<div class="slot on" title="${esc(m.name)}"><img alt="${esc(m.name)}" src="${portrait(m.look)}"></div>`:'<div class="slot"></div>'}).join('');
+  $('startProj').disabled=S.team.length<S.need;
+}
+function updTimer(){const t=Math.ceil(S.timeLeft);$('timer').textContent=t+'s';$('timer').classList.toggle('low',t<=15)}
+let toastT;
+function toast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2400)}
+
+/* ================= MODALS ================= */
+function openModal(html){$('sheet').innerHTML=html;$('modal').hidden=false;$('sheet').scrollTop=0;clearKeys();const b=$('sheet').querySelector('button');b&&b.focus({preventScroll:true})}
+function closeModal(){$('modal').hidden=true}
+function briefHTML(){
+  return `<dl class="brief"><dt>人數</dt><dd><b>${S.size} 人一組</b>（要找 ${S.need} 位組員）</dd>
+    <dt>題目</dt><dd>${esc(S.topic.n)}</dd>
+    <dt>需要</dt><dd>${S.req.map(k=>skChip(k)).join('')}</dd>
+    <dt>你擅長</dt><dd>${skChip(S.mySkill,S.req.includes(S.mySkill)?'ok':'')}</dd></dl>`;
+}
+function showIntro(){
+  openModal(`<div class="who"><div class="pf"><img alt="教授" src="${portrait(TEACHER_LOOK)}"></div>
+    <div><div class="eyebrow">教授</div><h2>期末專題開始分組！</h2></div></div>
+    ${briefHTML()}
+    <ol class="rules">
+      <li>在教室走動找組員，<b>${Math.round(S.timeLeft)} 秒</b>內找齊 ${S.need} 位。</li>
+      <li>頭上有 <b>!</b> 的同學會主動來找你。</li>
+      <li>先<b>聊聊看</b>才會知道對方的個性線索和專長。</li>
+      <li>專長要湊齊題目需要的領域，缺一塊就很難拿高分。</li>
+    </ol>
+    <p class="clue">分好組後有一整學期的挑戰：分工配對、喬開會時間、處理雷組員、派人解決突發狀況、期末衝刺，最後還要上台報告。這次 A+ 不好拿喔。</p>
+    <div class="acts row"><button class="btn pri" id="goRecruit" type="button">開始找組員</button></div>`);
+  $('goRecruit').onclick=()=>{closeModal();S.phase='recruit';S.last=performance.now();
+    if(innerWidth<760)$('hud').scrollIntoView({block:'start',behavior:'smooth'});setTimeout(setup,350);setup()};
+}
+function openEncounter(n,approached){
+  const p=S.player;p.path=null;p.chase=null;S.mark=null;n.path=null;
+  const data=n.bad?BAD[n.key]:GOOD[n.key];
+  const greet=approached?pick(APPROACH)+' ':'';
+  const draw=()=>{
+    const full=S.team.length>=S.need;
+    const useful=S.req.includes(n.skill);
+    openModal(`<div class="who"><div class="pf"><img alt="${esc(n.name)}" src="${portrait(n.look)}"></div>
+      <div><div class="eyebrow">${approached?'主動來找你的同學':'你遇到了同學'}</div><h2>${esc(n.name)}</h2>
+      ${n.talked?`<div>擅長 ${skChip(n.skill,useful?'ok':'')} <span class="note">${useful?'這次題目用得到':'這次題目用不太到'}</span></div>`:''}</div></div>
+      <p class="say">「${esc(greet+data.first)}」</p>
+      ${n.talked?`<p class="clue">${esc(data.clue)}<br>他說：「${esc(SKILL_LINE[n.skill])}」</p>`:''}
+      <div class="acts">
+        ${n.talked?'':'<button class="btn" id="eTalk" type="button">先聊聊看</button>'}
+        <button class="btn go" id="eInv" type="button" ${full?'disabled':''}>${full?'組員已經滿了':'邀請他入組'}</button>
+        <button class="btn" id="eBye" type="button">下次再說</button>
+      </div>`);
+    const t=$('eTalk');if(t)t.onclick=()=>{n.talked=true;draw()};
+    $('eInv').onclick=()=>{n.state='follow';n.talked=true;S.team.push(n);renderSlots();renderTopic();closeModal();S.encCd=1;
+      toast(S.team.length<S.need?`${n.name}（${SKILLS[n.skill]}）加入了！還差 ${S.need-S.team.length} 位`:'組員到齊了！按「開始做專題」');};
+    $('eBye').onclick=()=>{n.state='wander';n.approached=true;n.cd=5;S.encCd=1.2;closeModal()};
+  };
+  draw();
+}
+function timeUp(){
+  S.phase='frozen';clearKeys();
+  const pool=shuffle(S.npcs.filter(n=>n.state!=='follow'));
+  const added=[];while(S.team.length<S.need&&pool.length){const n=pool.pop();n.state='follow';S.team.push(n);added.push(n.name)}
+  renderSlots();renderTopic();
+  openModal(`<div class="who"><div class="pf"><img alt="教授" src="${portrait(TEACHER_LOOK)}"></div><div><div class="eyebrow">教授</div><h2>時間到！</h2></div></div>
+    <p class="say">${added.length?`「還沒找齊的，我幫你分：${added.map(esc).join('、')}。」`:'「大家都分好組了，開始做專題吧！」'}</p>
+    <div class="acts row"><button class="btn pri" id="toProj" type="button">開始做專題</button></div>`);
+  $('toProj').onclick=()=>{closeModal();startProject()};
+}
+$('startProj').onclick=()=>{if(S.team.length===S.need)startProject()};
+$('modal').addEventListener('click',e=>{if(e.target.id==='modal'&&S.phase==='dex')closeDex()});
+
+/* ================= PROJECT ================= */
+const ROUNDS=[{n:'WEEK 06',t:'期中週',d:'題目定好了，開始分工。'},{n:'WEEK 16',t:'期末週',d:'離上台只剩一週。'}];
+let mgStop=null;
+function stopMG(){if(mgStop){const f=mgStop;mgStop=null;f()}S.qte=null}
+function people(){return[{me:true,name:'你',skill:S.mySkill,look:PLAYER_LOOK,bad:false,fixed:0},...S.team.filter(m=>!m.gone)]}
+function reliable(m){return m.me||!m.bad||m.fixed>0}
+function pickBtn(m,i,target,attrs=''){const ok=target?m.skill===target:S.req.includes(m.skill);return `<button class="pick" type="button" data-p="${i}" ${attrs}><img alt="" src="${portrait(m.look)}"><span>${esc(m.name)}<small class="${ok?'ok':''}">${esc(SKILLS[m.skill])}</small></span></button>`}
+function skillMul(m){
+  if(!S.req.includes(m.skill))return .6;
+  const firstOwner=S.team.find(x=>!x.gone&&x.skill===m.skill);
+  return (firstOwner===m&&S.mySkill!==m.skill)?1.25:1;
+}
+function gain(m,p){return p>0?Math.round(p*S.k*skillMul(m)):Math.round(p*Math.max(1,S.k*.8))}
+function startProject(){
+  S.phase='project';clearKeys();
+  ['stage','hint','hud','ctrl'].forEach(id=>$(id).hidden=true);$('proj').hidden=false;
+  S.queue=[];
+  const evSkills=shuffle(S.req);
+  S.queue.push({kind:'round',ri:0},{kind:'assign'});
+  S.team.forEach(m=>S.queue.push({kind:'mem',m,ri:0}));
+  S.queue.push({kind:'schedule'},{kind:'event',skill:evSkills[0]},{kind:'round',ri:1});
+  S.team.forEach(m=>S.queue.push({kind:'mem',m,ri:1}));
+  S.queue.push({kind:'rush'},{kind:'event',skill:evSkills[1%evSkills.length]},{kind:'present'},{kind:'end'});
+  bars();next();
+  $('proj').scrollIntoView({block:'start',behavior:'smooth'});
+}
+function bars(){
+  S.P=clamp(S.P,0,100);S.M=clamp(S.M,0,100);
+  $('mP').firstElementChild.style.width=S.P+'%';$('mM').firstElementChild.style.width=S.M+'%';
+  $('vP').textContent=Math.round(S.P);$('vM').textContent=Math.round(S.M);
+}
+function apply(p,m){S.P+=p;S.M+=m;bars();return chips(p,m)}
+function chips(p,m){const c=(l,v)=>`<span class="chip ${v>0?'up':v<0?'down':''}">${l} ${v>0?'+':''}${v}</span>`;return `<div class="delta">${c('進度',p)}${c('氣氛',m)}</div>`}
+function pf(L,name,id){return `<div class="pf" ${id?`id="${id}"`:''}><img alt="${esc(name)}" src="${portrait(L)}"></div>`}
+function mulNote(m){const s=skillMul(m);return s>1?`專長「${SKILLS[m.skill]}」正好用得上，成果加成。`:s<1?`專長「${SKILLS[m.skill]}」這次用不太到，成果打折。`:`專長「${SKILLS[m.skill]}」和別人重複了。`}
+function nextBtn(label,cls='pri'){return `<div class="acts row"><button class="btn ${cls}" id="nx" type="button">${label}</button></div>`}
+function bindNext(){const b=$('nx');b.onclick=next;b.focus({preventScroll:true});b.scrollIntoView({block:'nearest',behavior:'smooth'})}
+function mgHead(title,desc){return `<div><div class="eyebrow"><span class="tag mg">互動</span>${title}</div></div><p class="note">${desc}</p>`}
+function next(){
+  stopMG();
+  const e=S.queue.shift();const card=$('card');
+  if(e.kind==='round'){
+    const r=ROUNDS[e.ri];$('roundtag').textContent=r.n+' · '+r.t+' · '+S.topic.n;
+    const mine=S.req.includes(S.mySkill)?6:4;
+    card.innerHTML=`<div class="card"><div class="who">${pf(PLAYER_LOOK,'你')}<div><div class="eyebrow">${r.n}</div><h3>${r.t}：${r.d}</h3></div></div>
+      <p>你先把自己負責的部分做完了。${S.req.includes(S.mySkill)?`你擅長的「${SKILLS[S.mySkill]}」剛好派上用場。`:''}</p>${apply(mine,0)}
+      ${nextBtn('繼續')}</div>`;
+    card.scrollIntoView({block:'nearest',behavior:'smooth'});
+    return bindNext();
+  }
+  if(e.kind==='assign')return assignCard();
+  if(e.kind==='schedule')return scheduleCard();
+  if(e.kind==='rush')return rushCard();
+  if(e.kind==='present')return presentCard();
+  if(e.kind==='event')return eventCard(e);
+  if(e.kind==='end')return finale();
+  const m=e.m;
+  if(m.gone)return next();
+  dex.add(m.key);saveDex();
+  if(m.bad)badCard(m,e.ri);else goodCard(m,e.ri);
+}
+function badCard(m,ri){
+  const d=BAD[m.key],ev=d.ev[ri];
+  const mk=(l,p,mm,r,q,extra)=>Object.assign({l,p:gain(m,p),mm,r,q:!!q},extra||{});
+  const opts=shuffle([mk(HIT,d.hit[1],d.hit[2],d.hit[0],d.hit[3],{kind:'hit'}),mk(SCOLD,d.scold[1],d.scold[2],d.scold[0],d.scold[3],{kind:'scold'}),
+    mk(ev.o[0][0],ev.o[0][1],ev.o[0][2],ev.o[0][3],ev.o[0][4],{best:true}),mk(ev.o[1][0],ev.o[1][1],ev.o[1][2],ev.o[1][3],ev.o[1][4])]);
+  $('card').innerHTML=`<div class="card"><div class="who">${pf(m.look,m.name,'mpf')}<div><div class="eyebrow">${esc(m.name)} 的真面目</div><h3><span class="tag bad">雷</span>${esc(d.name)}</h3><div>${skChip(m.skill,S.req.includes(m.skill)?'ok':'')} <span class="note">${esc(d.tag)}</span></div></div></div>
+    <p>${esc(ev.t)}</p><div class="eyebrow">你要怎麼處理？</div>
+    <div class="opts">${opts.map((o,i)=>`<button class="btn" type="button" data-i="${i}">${esc(o.l)}</button>`).join('')}</div></div>`;
+  $('card').scrollIntoView({block:'nearest',behavior:'smooth'});
+  $('card').querySelectorAll('.opts .btn').forEach(b=>b.onclick=()=>{
+    const o=opts[+b.dataset.i];if(o.best)m.fixed++;
+    if(o.q){m.gone=true;m.quit=true}
+    const best=opts.find(x=>x.best);
+    $('card').querySelector('.opts').outerHTML=`<p class="res">${esc(o.r)}</p>${apply(o.p,o.mm)}
+      ${o.p>0?`<p class="note">${mulNote(m)}</p>`:''}
+      <div class="lesson">${o.best?'<b>處理得好！</b>':`<b>比較好的做法：${esc(best.l)}</b>`}${esc(d.lesson)}</div>
+      ${nextBtn('繼續')}`;
+    const p=$('mpf');
+    if(o.kind){p.classList.add('bonk');p.insertAdjacentHTML('beforeend',`<span class="pop">${o.kind==='hit'?'啪！':'碎碎念'}</span>`)}
+    if(m.quit)p.style.opacity=.35;
+    bindNext();
+  });
+}
+function goodCard(m,ri){
+  const d=GOOD[m.key];
+  const p=gain(m,d.p);
+  $('card').innerHTML=`<div class="card"><div class="who">${pf(m.look,m.name)}<div><div class="eyebrow">${esc(m.name)} 的真面目</div><h3><span class="tag good">神</span>${esc(d.name)}</h3><div>${skChip(m.skill,S.req.includes(m.skill)?'ok':'')} <span class="note">${esc(d.tag)}</span></div></div></div>
+    <p>${esc(d.acts[ri])}</p>${apply(p,d.m)}<p class="note">${mulNote(m)}</p>
+    <div class="class"><div class="eyebrow">神組員教室：怎麼變得跟他一樣？</div><ul class="tips">${d.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>
+    ${nextBtn('學起來了！','go')}</div>`;
+  $('card').scrollIntoView({block:'nearest',behavior:'smooth'});
+  bindNext();
+}
+
+/* ----- 互動 1：分工配對 ----- */
+function assignCard(){
+  const ps=people();const sel=S.req.map(()=>null);
+  $('card').innerHTML=`<div class="card">${mgHead('分工配對','點選每項工作要交給誰。專長對上的人做得最好，也別把工作全塞給同一個人。綠色字代表專長符合題目。')}
+    <h3>把每項工作交給最適合的人</h3>
+    ${S.req.map((k,ti)=>`<div class="task"><b>${esc(SKILLS[k])}｜${esc(TASK_DESC[k])}</b><div class="picks">${ps.map((m,i)=>pickBtn(m,i,k,`data-t="${ti}"`)).join('')}</div></div>`).join('')}
+    <div id="aRes" class="acts"><button class="btn pri" id="aOk" type="button" disabled>確定分工</button></div></div>`;
+  $('card').scrollIntoView({block:'nearest',behavior:'smooth'});
+  $('card').querySelectorAll('.pick').forEach(b=>b.onclick=()=>{
+    const t=+b.dataset.t;sel[t]=+b.dataset.p;
+    b.parentElement.querySelectorAll('.pick').forEach(x=>{x.classList.toggle('sel',x===b);x.setAttribute('aria-pressed',x===b)});
+    $('aOk').disabled=sel.includes(null);
+  });
+  $('aOk').onclick=()=>{
+    let match=0;const load=new Map();
+    S.req.forEach((k,ti)=>{const m=ps[sel[ti]];if(m.skill===k)match++;load.set(sel[ti],(load.get(sel[ti])||0)+1)});
+    const maxLoad=Math.max(...load.values());const heavy=ps[[...load].find(([,c])=>c===maxLoad)[0]];
+    const p=match*3+(S.req.length-match);let mm=0,note='';
+    if(maxLoad>=3){mm=-5;note=`${heavy.me?'你':heavy.name}一個人被分到 ${maxLoad} 項工作，壓力超大。`}
+    else if(load.size>=Math.min(ps.length,S.req.length)){mm=4;note='工作平均分給大家，每個人都有參與感。'}
+    else{mm=0;note='有人分到兩項，還算可以。'}
+    $('card').querySelectorAll('.pick').forEach(b=>b.disabled=true);
+    $('aRes').outerHTML=`<p class="res">${match} / ${S.req.length} 項工作交給了擅長的人。${esc(note)}</p>${apply(p,mm)}
+      <div class="lesson"><b>神組員小撇步</b>先列出所有工作，再依照每個人的專長分配；工作量要平均，每項工作都要寫清楚負責人。</div>${nextBtn('繼續')}`;
+    bindNext();
+  };
+}
+
+/* ----- 互動 2：喬開會時間 ----- */
+function scheduleCard(){
+  const ps=people();const NC=15;const gold=Math.floor(Math.random()*NC);
+  const busy=ps.map(m=>{const n=m.key==='busy'?11:m.me?4:m.bad?6:4;return new Set(shuffle([...Array(NC).keys()].filter(c=>c!==gold)).slice(0,n))});
+  const LIMIT=15;let left=LIMIT,done=false;
+  $('card').innerHTML=`<div class="card">${mgHead('喬開會時間','斜線格子代表那個人沒空。在時間到之前，點上方黃色的時段，找一個大家都能來的時間。')}
+    <h3>這週要開第一次組會，約哪天？</h3>
+    <div class="tbar"><i id="sBar"></i></div>
+    <div class="cal"><table><thead><tr><th></th>${DAYS.map(d=>`<th class="day" colspan="3">週${d}</th>`).join('')}</tr>
+      <tr><th></th>${[...Array(NC).keys()].map(c=>`<th class="slotc"><button type="button" data-c="${c}" aria-label="週${DAYS[c/3|0]}${SLOTN[c%3]}">${SLOTN[c%3]}</button></th>`).join('')}</tr></thead>
+      <tbody>${ps.map((m,i)=>`<tr><th class="nm"><img alt="" src="${portrait(m.look)}">${esc(m.name)}</th>${[...Array(NC).keys()].map(c=>`<td class="${busy[i].has(c)?'busy':'free'}" data-c="${c}"></td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    <div id="sRes" class="acts"><button class="btn" id="sAsync" type="button">不約了，改成線上非同步討論</button></div></div>`;
+  $('card').scrollIntoView({block:'nearest',behavior:'smooth'});
+  const finish=(c,why)=>{
+    if(done)return;done=true;stopMG();
+    let html,p,mm;
+    if(c==null){p=4;mm=2;html='大家在共用文件留言討論，雖然慢了點，但每個人都有參與。'}
+    else{
+      $('card').querySelectorAll(`td[data-c="${c}"]`).forEach(td=>td.classList.add('hit'));
+      const miss=ps.filter((m,i)=>busy[i].has(c));
+      const when=`週${DAYS[c/3|0]}${SLOTN[c%3]}`;
+      if(!miss.length){p=6;mm=5;html=`${why||''}約在${when}，全員到齊！討論超有效率。`}
+      else if(miss.length===1){p=3;mm=0;html=`${why||''}約在${when}，${esc(miss[0].name)}沒辦法來，事後還要再跟他說明一次。`}
+      else{p=1;mm=-3;html=`${why||''}約在${when}，${miss.map(m=>esc(m.name)).join('、')}都不能來，會議開得零零落落。`}
+    }
+    $('card').querySelectorAll('.cal button,#sAsync').forEach(b=>b.disabled=true);
+    $('sRes').outerHTML=`<p class="res">${html}</p>${apply(p,mm)}<div class="lesson"><b>神組員小撇步</b>用表單或共用行事曆讓大家填空檔，比在群組一直問「哪天可以」快很多。真的約不到，就改成非同步討論。</div>${nextBtn('繼續')}`;
+    bindNext();
+  };
+  $('card').querySelector('.cal').addEventListener('click',e=>{const t=e.target.closest('[data-c]');if(t)finish(+t.dataset.c)});
+  $('sAsync').onclick=()=>finish(null);
+  const t0=performance.now();let raf;
+  const tick=now=>{left=LIMIT-(now-t0)/1000;const bar=$('sBar');if(bar)bar.style.width=Math.max(0,left/LIMIT*100)+'%';
+    if(left<=0){finish(Math.floor(Math.random()*NC),'時間到！群組裡有人隨便丟了一個時間：');return}raf=requestAnimationFrame(tick)};
+  raf=requestAnimationFrame(tick);mgStop=()=>cancelAnimationFrame(raf);
+}
+
+/* ----- 互動 3：期末衝刺 ----- */
+function rushCard(){
+  const unfixed=S.team.filter(m=>!m.gone&&m.bad&&m.fixed===0);
+  const pBad=Math.min(.6,.22+.08*unfixed.length);
+  const LIMIT=12;
+  $('card').innerHTML=`<div class="card">${mgHead('期末衝刺','12 秒內，盡量點<b>綠色</b>的待辦事項。點到<b>紅色</b>的耍廢誘惑會扣分。'+(unfixed.length?`還沒處理好的雷組員會讓誘惑變多（${unfixed.length} 位）。`:''))}
+    <h3>截止前最後一晚，衝！</h3>
+    <div class="rushhud"><span>剩下 <span id="rT">${LIMIT.toFixed(1)}</span> 秒</span><span>完成 <span id="rS">0</span></span></div>
+    <div class="rush" id="rush">${Array.from({length:9},(_,i)=>`<div class="hole" data-h="${i}"></div>`).join('')}</div>
+    <div id="rRes" class="acts"><button class="btn pri big" id="rGo" type="button">開始！</button></div></div>`;
+  $('card').scrollIntoView({block:'nearest',behavior:'smooth'});
+  const holes=[...$('rush').children];let score=0,running=false,raf,t0,lastSpawn=0;const items=new Map();
+  const clearHole=i=>{items.delete(i);holes[i].innerHTML=''};
+  $('rush').addEventListener('pointerdown',e=>{
+    const b=e.target.closest('button');if(!b||!running)return;e.preventDefault();
+    const i=+b.parentElement.dataset.h;const it=items.get(i);if(!it)return;
+    if(it.t){score++;holes[i].classList.add('yay')}else{score=Math.max(0,score-2);holes[i].classList.add('flash')}
+    setTimeout(()=>holes[i].classList.remove('yay','flash'),180);
+    clearHole(i);$('rS').textContent=score;
+  });
+  const end=()=>{
+    running=false;cancelAnimationFrame(raf);holes.forEach((h,i)=>clearHole(i));
+    const p=clamp(Math.round(score*.7),0,10),mm=score>=12?3:score<6?-3:0;
+    $('rRes').outerHTML=`<p class="res">你完成了 ${score} 件待辦事項。${score>=12?'效率爆表！':score>=6?'還算順利。':'被耍廢誘惑打敗了……'}</p>${apply(p,mm)}
+      <div class="lesson"><b>神組員小撇步</b>把大工作拆成小待辦，一次專心做一件；手機放遠一點，做完一項就劃掉。</div>${nextBtn('繼續')}`;
+    bindNext();
+  };
+  const tick=now=>{
+    const el=(now-t0)/1000,left=LIMIT-el;$('rT').textContent=Math.max(0,left).toFixed(1);
+    if(left<=0)return end();
+    items.forEach((it,i)=>{if(now>it.until)clearHole(i)});
+    if(now-lastSpawn>(el<6?560:440)){
+      lastSpawn=now;const free=holes.map((_,i)=>i).filter(i=>!items.has(i));
+      if(free.length){const i=pick(free),t=Math.random()>pBad;items.set(i,{t,until:now+(t?1100:1300)});
+        holes[i].innerHTML=`<button type="button" class="${t?'t':'x'}">${esc(t?pick(RUSH_T):pick(RUSH_X))}</button>`}
+    }
+    raf=requestAnimationFrame(tick);
+  };
+  $('rGo').onclick=()=>{$('rGo').disabled=true;$('rGo').textContent='衝刺中！';running=true;t0=performance.now();lastSpawn=0;raf=requestAnimationFrame(tick)};
+  mgStop=()=>{running=false;cancelAnimationFrame(raf)};
+}
+
+/* ----- 互動 4：上台報告 ----- */
+function presentCard(){
+  const ps=people();
+  $('card').innerHTML=`<div class="card">${mgHead('上台報告','先選誰當主講。擅長「上台口條」的人比較穩；還沒處理好的雷組員可能會出包。')}
+    <h3>期末報告日，誰上台主講？</h3>
+    <div class="picks" id="pPick">${ps.map((m,i)=>pickBtn(m,i,'speaking')).join('')}</div>
+    <div id="pStage"></div></div>`;
+  $('card').scrollIntoView({block:'nearest',behavior:'smooth'});
+  $('pPick').querySelectorAll('.pick').forEach(b=>b.onclick=()=>{
+    $('pPick').querySelectorAll('.pick').forEach(x=>{x.disabled=true;x.classList.toggle('sel',x===b)});
+    runQTE(ps[+b.dataset.p]);
+  });
+}
+function runQTE(m){
+  const good=reliable(m);let zone=m.skill==='speaking'?.26:.15,speed=1.05;
+  if(!good){zone=.12;speed=1.4}
+  const who=m.me?'你':m.name;
+  const intro=m.skill==='speaking'&&good?`${who}很會講，台風穩健。`:!good?(m.key==='credit'?`${who}自信滿滿，但根本不清楚內容……`:`${who}看起來沒什麼準備……`):`${who}不太擅長上台，有點緊張。`;
+  const PROMPTS=['開場自我介紹','講解核心重點','回答教授提問'];
+  let round=0,sum=0,phase=Math.random()*2,center=0,raf,last,locked=false;
+  $('pStage').innerHTML=`<div class="acts"><p class="res" style="margin:0">${esc(intro)}</p>
+    <p class="note">游標停在綠色區域裡就成功，正中央的深綠色最好。可以按下面的按鈕，或直接點長條（鍵盤按空白鍵）。</p>
+    <div class="eyebrow" id="qP"></div>
+    <div class="qte" id="qBar"><div class="zone" id="qZ"><b></b></div><div class="cur" id="qC"></div></div>
+    <div class="qfb" id="qF"></div>
+    <button class="btn pri big" id="qGo" type="button">停！</button></div>`;
+  const setRound=()=>{center=rnd(.2+zone/2,.8-zone/2);const z=$('qZ');z.style.left=(center-zone/2)*100+'%';z.style.width=zone*100+'%';$('qP').textContent=`第 ${round+1} / 3 段：${PROMPTS[round]}`;locked=false};
+  const tick=now=>{const dt=last?(now-last)/1000:0;last=now;if(!locked){phase=(phase+dt*speed*2)%2;$('qC').style.left=(1-Math.abs(phase-1))*100+'%'}raf=requestAnimationFrame(tick)};
+  const hit=()=>{
+    if(locked)return;locked=true;
+    const pos=1-Math.abs(phase-1),d=Math.abs(pos-center);
+    let pts=0,txt;
+    if(d<=zone*.2){pts=4;txt='完美！教授點頭了。'}else if(d<=zone/2){pts=2;txt='不錯，講得很順。'}else{pts=0;txt=round===2?'被問倒了，支支吾吾……':'吃螺絲了……'}
+    sum+=pts;$('qF').textContent=txt;round++;
+    if(round<3){setTimeout(setRound,750)}else{
+      S.qte=null;cancelAnimationFrame(raf);$('qGo').disabled=true;
+      const p=Math.round(sum*.85),mm=sum>=9?4:sum<=3?-4:0;
+      setTimeout(()=>{
+        $('qGo').outerHTML=`<p class="res">報告結束，台風得分 ${sum} / 12。</p>${apply(p,mm)}
+          <div class="lesson"><b>神組員小撇步</b>上台前至少完整彩排一次；每個人講自己做的部分最熟；被問問題時先重述問題，再回答重點。</div>${nextBtn('看最終成績')}`;
+        bindNext();
+      },600);
+    }
+  };
+  setRound();raf=requestAnimationFrame(tick);
+  $('qGo').onclick=hit;$('qBar').addEventListener('pointerdown',e=>{e.preventDefault();hit()});S.qte=hit;
+  mgStop=()=>{cancelAnimationFrame(raf)};
+  $('qGo').scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+
+/* ----- 突發狀況：自己選人處理 ----- */
+function eventCard(e){
+  const sk=e.skill,name=SKILLS[sk];const ps=people();
+  $('card').innerHTML=`<div class="card"><div><div class="eyebrow"><span class="tag bad">突發狀況</span>需要「${esc(name)}」</div></div><h3>${esc(SURPRISE[sk])}</h3>
+    <p class="note">要派誰去處理？綠色字代表擅長「${esc(name)}」。</p>
+    <div class="picks" id="evPick">${ps.map((m,i)=>pickBtn(m,i,sk)).join('')}<button class="pick" type="button" data-p="ta"><span>去請教助教<small>穩穩的，但不會太好</small></span></button></div>
+    <div id="evRes"></div></div>`;
+  $('card').scrollIntoView({block:'nearest',behavior:'smooth'});
+  $('evPick').querySelectorAll('.pick').forEach(b=>b.onclick=()=>{
+    $('evPick').querySelectorAll('.pick').forEach(x=>{x.disabled=true;x.classList.toggle('sel',x===b)});
+    let p,mm,txt;
+    if(b.dataset.p==='ta'){p=4;mm=1;txt='助教給了一些方向，勉強過關。'}
+    else{
+      const m=ps[+b.dataset.p],who=m.me?'你':m.name;
+      if(m.skill===sk&&reliable(m)){p=9;mm=3;txt=`${who}正好擅長「${name}」，漂亮解決！`}
+      else if(m.skill===sk){p=2;mm=-3;txt=`${who}明明擅長，但你還沒處理好他的問題，他隨便敷衍了一下。`}
+      else if(m.me){p=5;mm=-2;txt=`你不擅長「${name}」，熬夜硬補出來，累壞了。`}
+      else if(reliable(m)){p=4;mm=1;txt=`${who}不太擅長，但很努力地學，勉強完成。`}
+      else{p=-2;mm=-3;txt=`${who}不擅長也不想做，直接已讀不回。`}
+    }
+    const best=ps.find(m=>m.skill===sk&&reliable(m));
+    const tip=best&&p<9?`其實${best.me?'你自己':esc(best.name)}擅長「${esc(name)}」，派對的人會事半功倍。`:'適才適所：把任務交給擅長的人，比誰有空就給誰更有效。';
+    $('evRes').outerHTML=`<p class="res">${esc(txt)}</p>${apply(p,mm)}<div class="lesson"><b>神組員小撇步</b>${tip}</div>${nextBtn('繼續')}`;
+    bindNext();
+  });
+}
+
+function finale(){
+  const active=S.team.filter(m=>!m.gone);
+  const cov=new Set([S.mySkill]);active.forEach(m=>{if(reliable(m))cov.add(m.skill)});
+  const covN=S.req.filter(k=>cov.has(k)).length,covR=covN/S.req.length;
+  const sP=Math.round(clamp(S.P,0,100)*.6),sM=Math.round(S.M*.15),sC=Math.round(covR*25);
+  const score=sP+sM+sC;
+  const quits=S.team.filter(m=>m.quit).length;
+  const missing=S.req.filter(k=>!cov.has(k));
+  const aplus=score>=94&&covR===1&&quits===0&&S.M>=70;
+  const g=aplus?['A+','教授說這是今年最好的一組報告！']:score>=86?['A','很棒的成績，但離 A+ 還差一點。']:score>=76?['B','還不錯，但有些雷沒拆乾淨。']:score>=64?['C','低空飛過……下次早點處理問題。']:['F','重修警報！雷組員贏了這一局。'];
+  const why=[];
+  if(!aplus){if(score<94)why.push(`總分要 94 分以上（目前 ${score}）`);if(missing.length)why.push('缺少能用的專長：'+missing.map(k=>SKILLS[k]).join('、'));if(quits)why.push('有組員退組');if(S.M<70)why.push(`組內氣氛要 70 以上（目前 ${Math.round(S.M)}）`)}
+  $('roundtag').textContent='FINAL · 上台報告 · '+S.topic.n;
+  const others=S.npcs.filter(n=>!S.team.includes(n));others.forEach(n=>dex.add(n.key));saveDex();
+  const row=n=>{const d=n.bad?BAD[n.key]:GOOD[n.key];return `<div class="li"><img alt="" src="${portrait(n.look)}"><div><span class="tag ${n.bad?'bad':'good'}">${n.bad?'雷':'神'}</span><b>${esc(n.name)}</b>：${esc(d.name)}・${esc(SKILLS[n.skill])}${n.quit?'（退組了）':n.bad&&n.fixed===2?'（被你感化了）':''}</div></div>`};
+  $('card').innerHTML=`<div class="card"><div class="final"><div class="grade">${g[0]}</div><div><div class="eyebrow">${S.size} 人一組 · 最終分數 ${score} / 100</div><h3>${g[1]}</h3></div></div>
+    <div class="score"><span>報告進度（${Math.round(S.P)}/100）</span><b>${sP}/60</b><span>組內氣氛（${Math.round(S.M)}/100）</span><b>${sM}/15</b><span>專長完整度（${covN}/${S.req.length}）</span><b>${sC}/25</b></div>
+    ${why.length?`<div class="lesson"><b>拿 A+ 的條件還差：</b>${why.map(esc).join('；')}</div>`:''}
+    <div class="eyebrow">你的組員</div><div class="list">${S.team.map(row).join('')}</div>
+    <div class="eyebrow">其他同學的真面目</div><div class="list">${others.map(row).join('')}</div>
+    <div class="acts row"><button class="btn pri" id="again" type="button">再玩一次</button><button class="btn" id="seeDex" type="button">看組員圖鑑</button></div>
+    <p class="credit">分組求生記・遊戲設計 <b>may22</b></p></div>`;
+  $('card').scrollIntoView({block:'nearest',behavior:'smooth'});
+  $('again').onclick=restart;$('seeDex').onclick=openDex;
+}
+function restart(){
+  stopMG();
+  $('proj').hidden=true;['stage','hint','hud','ctrl'].forEach(id=>$(id).hidden=false);
+  newGame();setup();showIntro();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ================= DEX ================= */
+let prevPhase;
+function openDex(){
+  prevPhase=S.phase;if(S.phase==='recruit')S.phase='dex';
+  const item=(k,d,bad)=>dex.has(k)?`<div class="dx"><span class="tag ${bad?'bad':'good'}">${bad?'雷':'神'}</span><strong>${esc(d.name)}</strong><p>${esc(d.tag)}</p><p>${bad?'<b>怎麼處理：</b>'+esc(d.lesson):'<b>偷學：</b>'+esc(d.tips.join(' '))}</p></div>`:`<div class="dx lock"><strong>？？？</strong><p>${bad?'雷組員':'神組員'}・還沒遇過</p></div>`;
+  openModal(`<div><div class="eyebrow">已解鎖 ${dex.size} / 20</div><h2 style="margin:0;font-size:20px;font-weight:900">組員圖鑑</h2></div>
+    <div class="dex">${Object.entries(BAD).map(([k,d])=>item(k,d,true)).join('')}${Object.entries(GOOD).map(([k,d])=>item(k,d,false)).join('')}</div>
+    <div class="acts row"><button class="btn pri" id="dexClose" type="button">關閉</button></div>`);
+  $('dexClose').onclick=closeDex;
+}
+function closeDex(){closeModal();if(S.phase==='dex')S.phase=prevPhase;if(S.phase==='intro')showIntro();S.last=performance.now()}
+$('dexBtn').onclick=openDex;
+
+/* ================= BOOT ================= */
+newGame();setup();
+(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(drawBG);
+showIntro();
+requestAnimationFrame(t=>{S.last=t;loop(t)});
+</script>
+
+</body>
+</html>
