@@ -27,6 +27,8 @@ button{touch-action:manipulation}
 .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .top h1{margin:0;font-size:clamp(24px,5vw,36px);font-weight:900;letter-spacing:.04em;line-height:1.1;text-shadow:3px 3px 0 var(--peach)}
 .top .sub{margin:2px 0 0;color:var(--muted);font-size:14px}
+.hbtns{display:flex;gap:8px;flex:none}
+#soundBtn[aria-pressed="false"]{background:var(--floor);color:var(--muted)}
 @media (max-width:520px){.top .sub{display:none}}
 .box{background:var(--panel);border:3px solid var(--ink);box-shadow:4px 4px 0 var(--ink)}
 .game{position:relative;display:flex;flex-direction:column;gap:10px;-webkit-user-select:none;user-select:none}
@@ -184,7 +186,7 @@ button{touch-action:manipulation}
       <h1>分組求生記</h1>
       <p class="sub">期末專題要分組了。走遍教室，找到神隊友、避開雷隊友。</p>
     </div>
-    <button class="btn sm" id="dexBtn" type="button">組員圖鑑</button>
+    <div class="hbtns"><button class="btn sm" id="soundBtn" type="button" aria-pressed="true">音效 開</button><button class="btn sm" id="dexBtn" type="button">組員圖鑑</button></div>
   </header>
 
   <div class="game">
@@ -631,7 +633,7 @@ function renderSlots(){
   $('slots').innerHTML=Array.from({length:S.need},(_,i)=>{const m=S.team[i];return m?`<div class="slot on" title="${esc(m.name)}"><img alt="${esc(m.name)}" src="${portrait(m.look)}"></div>`:'<div class="slot"></div>'}).join('');
   $('startProj').disabled=S.team.length<S.need;
 }
-function updTimer(){const t=Math.ceil(S.timeLeft);$('timer').textContent=t+'s';$('timer').classList.toggle('low',t<=15)}
+function updTimer(){const t=Math.ceil(S.timeLeft);if(S.phase==='recruit'&&t<=10&&t>0&&t!==S.lastTick){S.lastTick=t;SFX.play('tick')}$('timer').textContent=t+'s';$('timer').classList.toggle('low',t<=15)}
 let toastT;
 function toast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2400)}
 
@@ -656,13 +658,14 @@ function showIntro(){
     </ol>
     <p class="clue">分好組後有一整學期的挑戰：分工配對、喬開會時間、處理雷組員、派人解決突發狀況、期末衝刺，最後還要上台報告。這次 A+ 不好拿喔。</p>
     <div class="acts row"><button class="btn pri" id="goRecruit" type="button">開始找組員</button></div>`);
-  $('goRecruit').onclick=()=>{closeModal();S.phase='recruit';S.last=performance.now();
+  $('goRecruit').onclick=()=>{closeModal();SFX.play('start');SFX.bgm(true);S.phase='recruit';S.last=performance.now();
     if(innerWidth<760)$('hud').scrollIntoView({block:'start',behavior:'smooth'});setTimeout(setup,350);setup()};
 }
 function openEncounter(n,approached){
   const p=S.player;p.path=null;p.chase=null;S.mark=null;n.path=null;
   const data=n.bad?BAD[n.key]:GOOD[n.key];
   const greet=approached?pick(APPROACH)+' ':'';
+  SFX.play(approached?'approach':'meet');
   const draw=()=>{
     const full=S.team.length>=S.need;
     const useful=S.req.includes(n.skill);
@@ -676,15 +679,15 @@ function openEncounter(n,approached){
         <button class="btn go" id="eInv" type="button" ${full?'disabled':''}>${full?'組員已經滿了':'邀請他入組'}</button>
         <button class="btn" id="eBye" type="button">下次再說</button>
       </div>`);
-    const t=$('eTalk');if(t)t.onclick=()=>{n.talked=true;draw()};
-    $('eInv').onclick=()=>{n.state='follow';n.talked=true;S.team.push(n);renderSlots();renderTopic();closeModal();S.encCd=1;
+    const t=$('eTalk');if(t)t.onclick=()=>{n.talked=true;SFX.play('talk');draw()};
+    $('eInv').onclick=()=>{SFX.play('join');n.state='follow';n.talked=true;S.team.push(n);renderSlots();renderTopic();closeModal();S.encCd=1;
       toast(S.team.length<S.need?`${n.name}（${SKILLS[n.skill]}）加入了！還差 ${S.need-S.team.length} 位`:'組員到齊了！按「開始做專題」');};
-    $('eBye').onclick=()=>{n.state='wander';n.approached=true;n.cd=5;S.encCd=1.2;closeModal()};
+    $('eBye').onclick=()=>{SFX.play('bye');n.state='wander';n.approached=true;n.cd=5;S.encCd=1.2;closeModal()};
   };
   draw();
 }
 function timeUp(){
-  S.phase='frozen';clearKeys();
+  S.phase='frozen';clearKeys();SFX.bgm(false);SFX.play('timeup');
   const pool=shuffle(S.npcs.filter(n=>n.state!=='follow'));
   const added=[];while(S.team.length<S.need&&pool.length){const n=pool.pop();n.state='follow';S.team.push(n);added.push(n.name)}
   renderSlots();renderTopic();
@@ -710,7 +713,7 @@ function skillMul(m){
 }
 function gain(m,p){return p>0?Math.round(p*S.k*skillMul(m)):Math.round(p*Math.max(1,S.k*.8))}
 function startProject(){
-  S.phase='project';clearKeys();
+  S.phase='project';clearKeys();SFX.bgm(false);SFX.play('start');
   ['stage','hint','hud','ctrl'].forEach(id=>$(id).hidden=true);$('proj').hidden=false;
   S.queue=[];
   const evSkills=shuffle(S.req);
@@ -768,6 +771,7 @@ function badCard(m,ri){
   $('card').scrollIntoView({block:'nearest',behavior:'smooth'});
   $('card').querySelectorAll('.opts .btn').forEach(b=>b.onclick=()=>{
     const o=opts[+b.dataset.i];if(o.best)m.fixed++;
+    SFX.play(o.kind==='hit'?'hit':o.kind==='scold'?'scold':o.best?'good':'bad');if(o.q)setTimeout(()=>SFX.play('quit'),350);
     if(o.q){m.gone=true;m.quit=true}
     const best=opts.find(x=>x.best);
     $('card').querySelector('.opts').outerHTML=`<p class="res">${esc(o.r)}</p>${apply(o.p,o.mm)}
@@ -782,7 +786,7 @@ function badCard(m,ri){
 }
 function goodCard(m,ri){
   const d=GOOD[m.key];
-  const p=gain(m,d.p);
+  const p=gain(m,d.p);SFX.play('good');
   $('card').innerHTML=`<div class="card"><div class="who">${pf(m.look,m.name)}<div><div class="eyebrow">${esc(m.name)} 的真面目</div><h3><span class="tag good">神</span>${esc(d.name)}</h3><div>${skChip(m.skill,S.req.includes(m.skill)?'ok':'')} <span class="note">${esc(d.tag)}</span></div></div></div>
     <p>${esc(d.acts[ri])}</p>${apply(p,d.m)}<p class="note">${mulNote(m)}</p>
     <div class="class"><div class="eyebrow">神組員教室：怎麼變得跟他一樣？</div><ul class="tips">${d.tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>
@@ -812,6 +816,7 @@ function assignCard(){
     if(maxLoad>=3){mm=-5;note=`${heavy.me?'你':heavy.name}一個人被分到 ${maxLoad} 項工作，壓力超大。`}
     else if(load.size>=Math.min(ps.length,S.req.length)){mm=4;note='工作平均分給大家，每個人都有參與感。'}
     else{mm=0;note='有人分到兩項，還算可以。'}
+    SFX.play(match===S.req.length&&mm>=0?'good':match>=S.req.length/2?'tap':'bad');
     $('card').querySelectorAll('.pick').forEach(b=>b.disabled=true);
     $('aRes').outerHTML=`<p class="res">${match} / ${S.req.length} 項工作交給了擅長的人。${esc(note)}</p>${apply(p,mm)}
       <div class="lesson"><b>神組員小撇步</b>先列出所有工作，再依照每個人的專長分配；工作量要平均，每項工作都要寫清楚負責人。</div>${nextBtn('繼續')}`;
@@ -844,6 +849,7 @@ function scheduleCard(){
       else if(miss.length===1){p=3;mm=0;html=`${why||''}約在${when}，${esc(miss[0].name)}沒辦法來，事後還要再跟他說明一次。`}
       else{p=1;mm=-3;html=`${why||''}約在${when}，${miss.map(m=>esc(m.name)).join('、')}都不能來，會議開得零零落落。`}
     }
+    SFX.play(p>=4?'good':'bad');
     $('card').querySelectorAll('.cal button,#sAsync').forEach(b=>b.disabled=true);
     $('sRes').outerHTML=`<p class="res">${html}</p>${apply(p,mm)}<div class="lesson"><b>神組員小撇步</b>用表單或共用行事曆讓大家填空檔，比在群組一直問「哪天可以」快很多。真的約不到，就改成非同步討論。</div>${nextBtn('繼續')}`;
     bindNext();
@@ -872,13 +878,13 @@ function rushCard(){
   $('rush').addEventListener('pointerdown',e=>{
     const b=e.target.closest('button');if(!b||!running)return;e.preventDefault();
     const i=+b.parentElement.dataset.h;const it=items.get(i);if(!it)return;
-    if(it.t){score++;holes[i].classList.add('yay')}else{score=Math.max(0,score-2);holes[i].classList.add('flash')}
+    if(it.t){score++;holes[i].classList.add('yay');SFX.play('tap')}else{score=Math.max(0,score-2);holes[i].classList.add('flash');SFX.play('miss')}
     setTimeout(()=>holes[i].classList.remove('yay','flash'),180);
     clearHole(i);$('rS').textContent=score;
   });
   const end=()=>{
     running=false;cancelAnimationFrame(raf);holes.forEach((h,i)=>clearHole(i));
-    const p=clamp(Math.round(score*.7),0,10),mm=score>=12?3:score<6?-3:0;
+    const p=clamp(Math.round(score*.7),0,10),mm=score>=12?3:score<6?-3:0;SFX.play(score>=10?'good':'bad');
     $('rRes').outerHTML=`<p class="res">你完成了 ${score} 件待辦事項。${score>=12?'效率爆表！':score>=6?'還算順利。':'被耍廢誘惑打敗了……'}</p>${apply(p,mm)}
       <div class="lesson"><b>神組員小撇步</b>把大工作拆成小待辦，一次專心做一件；手機放遠一點，做完一項就劃掉。</div>${nextBtn('繼續')}`;
     bindNext();
@@ -894,7 +900,7 @@ function rushCard(){
     }
     raf=requestAnimationFrame(tick);
   };
-  $('rGo').onclick=()=>{$('rGo').disabled=true;$('rGo').textContent='衝刺中！';running=true;t0=performance.now();lastSpawn=0;raf=requestAnimationFrame(tick)};
+  $('rGo').onclick=()=>{SFX.play('start');$('rGo').disabled=true;$('rGo').textContent='衝刺中！';running=true;t0=performance.now();lastSpawn=0;raf=requestAnimationFrame(tick)};
   mgStop=()=>{running=false;cancelAnimationFrame(raf)};
 }
 
@@ -931,7 +937,7 @@ function runQTE(m){
     const pos=1-Math.abs(phase-1),d=Math.abs(pos-center);
     let pts=0,txt;
     if(d<=zone*.2){pts=4;txt='完美！教授點頭了。'}else if(d<=zone/2){pts=2;txt='不錯，講得很順。'}else{pts=0;txt=round===2?'被問倒了，支支吾吾……':'吃螺絲了……'}
-    sum+=pts;$('qF').textContent=txt;round++;
+    sum+=pts;$('qF').textContent=txt;round++;SFX.play(pts===4?'perfect':pts?'tap':'miss');
     if(round<3){setTimeout(setRound,750)}else{
       S.qte=null;cancelAnimationFrame(raf);$('qGo').disabled=true;
       const p=Math.round(sum*.85),mm=sum>=9?4:sum<=3?-4:0;
@@ -968,6 +974,7 @@ function eventCard(e){
       else if(reliable(m)){p=4;mm=1;txt=`${who}不太擅長，但很努力地學，勉強完成。`}
       else{p=-2;mm=-3;txt=`${who}不擅長也不想做，直接已讀不回。`}
     }
+    SFX.play(p>=9?'good':p<=2?'bad':'tap');
     const best=ps.find(m=>m.skill===sk&&reliable(m));
     const tip=best&&p<9?`其實${best.me?'你自己':esc(best.name)}擅長「${esc(name)}」，派對的人會事半功倍。`:'適才適所：把任務交給擅長的人，比誰有空就給誰更有效。';
     $('evRes').outerHTML=`<p class="res">${esc(txt)}</p>${apply(p,mm)}<div class="lesson"><b>神組員小撇步</b>${tip}</div>${nextBtn('繼續')}`;
@@ -988,6 +995,7 @@ function finale(){
   const why=[];
   if(!aplus){if(score<94)why.push(`總分要 94 分以上（目前 ${score}）`);if(missing.length)why.push('缺少能用的專長：'+missing.map(k=>SKILLS[k]).join('、'));if(quits)why.push('有組員退組');if(S.M<70)why.push(`組內氣氛要 70 以上（目前 ${Math.round(S.M)}）`)}
   $('roundtag').textContent='FINAL · 上台報告 · '+S.topic.n;
+  setTimeout(()=>SFX.play(aplus?'aplus':score>=76?'pass':'fail'),200);
   const others=S.npcs.filter(n=>!S.team.includes(n));others.forEach(n=>dex.add(n.key));saveDex();
   const row=n=>{const d=n.bad?BAD[n.key]:GOOD[n.key];return `<div class="li"><img alt="" src="${portrait(n.look)}"><div><span class="tag ${n.bad?'bad':'good'}">${n.bad?'雷':'神'}</span><b>${esc(n.name)}</b>：${esc(d.name)}・${esc(SKILLS[n.skill])}${n.quit?'（退組了）':n.bad&&n.fixed===2?'（被你感化了）':''}</div></div>`};
   $('card').innerHTML=`<div class="card"><div class="final"><div class="grade">${g[0]}</div><div><div class="eyebrow">${S.size} 人一組 · 最終分數 ${score} / 100</div><h3>${g[1]}</h3></div></div>
@@ -1001,7 +1009,7 @@ function finale(){
   $('again').onclick=restart;$('seeDex').onclick=openDex;
 }
 function restart(){
-  stopMG();
+  stopMG();SFX.bgm(false);
   $('proj').hidden=true;['stage','hint','hud','ctrl'].forEach(id=>$(id).hidden=false);
   newGame();setup();showIntro();
   window.scrollTo({top:0,behavior:'smooth'});
@@ -1020,8 +1028,71 @@ function openDex(){
 function closeDex(){closeModal();if(S.phase==='dex')S.phase=prevPhase;if(S.phase==='intro')showIntro();S.last=performance.now()}
 $('dexBtn').onclick=openDex;
 
+
+/* ================= SOUND (synthesised chiptune, no files) ================= */
+const SFX=(()=>{
+  let ac=null,master=null,on=true,bgmT=null,step=0;
+  try{on=localStorage.getItem('gs-sound')!=='off'}catch(e){}
+  const N={B3:247,C4:262,D4:294,E4:330,F4:349,G4:392,A4:440,B4:494,C5:523,D5:587,E5:659,F5:698,G5:784,A5:880,C6:1047};
+  function ctx(){
+    if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;try{ac=new C();master=ac.createGain();master.gain.value=.55;master.connect(ac.destination)}catch(e){ac=null;return null}}
+    if(ac.state==='suspended')ac.resume().catch(()=>{});return ac;
+  }
+  function tone(f,d,o={}){
+    if(!on||!f)return;const a=ctx();if(!a)return;
+    const t0=a.currentTime+(o.t||0),osc=a.createOscillator(),g=a.createGain();
+    osc.type=o.type||'square';osc.frequency.setValueAtTime(f,t0);
+    if(o.slide)osc.frequency.exponentialRampToValueAtTime(Math.max(40,f+o.slide),t0+d);
+    g.gain.setValueAtTime(o.vol||.12,t0);g.gain.exponentialRampToValueAtTime(.0001,t0+d);
+    osc.connect(g);g.connect(master);osc.start(t0);osc.stop(t0+d+.03);
+  }
+  function noise(d,o={}){
+    if(!on)return;const a=ctx();if(!a)return;
+    const len=Math.floor(a.sampleRate*d),buf=a.createBuffer(1,len,a.sampleRate),ch=buf.getChannelData(0);
+    for(let i=0;i<len;i++)ch[i]=(Math.random()*2-1)*(1-i/len);
+    const src=a.createBufferSource(),f=a.createBiquadFilter(),g=a.createGain();
+    src.buffer=buf;f.type='highpass';f.frequency.value=o.hp||800;g.gain.value=o.vol||.25;
+    src.connect(f);f.connect(g);g.connect(master);src.start(a.currentTime+(o.t||0));
+  }
+  const seq=(notes,st,o={})=>notes.forEach((n,i)=>tone(n,st*.92,Object.assign({},o,{t:i*st})));
+  const lib={
+    click:()=>tone(900,.04,{vol:.05}),
+    meet:()=>seq([N.E5,N.G5],.07,{vol:.1}),
+    approach:()=>seq([N.C5,N.C5,N.G5],.07,{vol:.1,type:'triangle'}),
+    talk:()=>seq([N.G4,N.C5,N.E5],.05,{vol:.08}),
+    join:()=>seq([N.C5,N.E5,N.G5,N.C6],.08,{vol:.12}),
+    bye:()=>seq([N.G4,N.E4],.07,{vol:.07,type:'triangle'}),
+    good:()=>seq([N.E5,N.G5,N.C6],.08,{vol:.11,type:'triangle'}),
+    bad:()=>seq([N.E4,N.C4],.15,{vol:.12,type:'sawtooth'}),
+    hit:()=>{noise(.14,{vol:.4,hp:500});tone(200,.14,{vol:.18,slide:-140})},
+    scold:()=>seq([N.A4,N.G4,N.A4,N.G4,N.A4,N.G4],.05,{vol:.07,type:'sawtooth'}),
+    quit:()=>tone(520,.7,{type:'triangle',vol:.12,slide:-380}),
+    tap:()=>tone(1046,.06,{vol:.1}),
+    miss:()=>{tone(150,.16,{vol:.14,type:'sawtooth'});noise(.08,{vol:.12,hp:1500})},
+    tick:()=>tone(1300,.035,{vol:.06}),
+    perfect:()=>seq([N.G5,N.C6,N.G5,N.C6],.045,{vol:.11}),
+    start:()=>seq([N.C5,N.G4,N.C5,N.E5,N.G5],.07,{vol:.11}),
+    timeup:()=>seq([N.G4,N.E4,N.C4],.16,{vol:.13,type:'triangle'}),
+    aplus:()=>seq([N.C5,N.E5,N.G5,N.C6,0,N.G5,N.C6,N.C6],.11,{vol:.13}),
+    pass:()=>seq([N.C5,N.E5,N.G5,N.E5,N.C6],.1,{vol:.11}),
+    fail:()=>seq([N.G4,N.F4,N.E4,N.D4,N.C4],.14,{vol:.11,type:'triangle'})
+  };
+  const MEL=[N.C5,0,N.E5,N.G5,N.A5,N.G5,N.E5,0,N.F5,0,N.A5,N.F5,N.G5,0,N.E5,0,N.D5,0,N.F5,N.E5,N.D5,N.B4,N.C5,0,N.E5,N.D5,N.C5,N.B4,N.C5,0,0,0];
+  const BAS=[N.C4,N.C4,N.F4,N.C4,N.G4,N.G4,N.C4,N.G4];
+  function bgmStep(){if(!on)return;const m=MEL[step%MEL.length];if(m)tone(m,.14,{type:'triangle',vol:.045});if(step%4===0)tone(BAS[(step/4|0)%BAS.length]/2,.22,{type:'square',vol:.025});step++}
+  return{
+    play(n){try{lib[n]&&lib[n]()}catch(e){}},
+    bgm(go){if(go){if(bgmT)return;step=0;ctx();bgmT=setInterval(bgmStep,165)}else if(bgmT){clearInterval(bgmT);bgmT=null}},
+    get on(){return on},
+    toggle(){on=!on;try{localStorage.setItem('gs-sound',on?'on':'off')}catch(e){}if(on)ctx();return on}
+  };
+})();
+function renderSoundBtn(){const b=$('soundBtn');b.textContent=SFX.on?'音效 開':'音效 關';b.setAttribute('aria-pressed',SFX.on)}
+$('soundBtn').onclick=()=>{SFX.toggle();renderSoundBtn();if(SFX.on){SFX.play('good');if(S&&(S.phase==='recruit'))SFX.bgm(true)}};
+document.addEventListener('click',e=>{if(e.target.closest('.btn,.pick')&&e.target.id!=='soundBtn')SFX.play('click')},true);
+
 /* ================= BOOT ================= */
-newGame();setup();
+newGame();setup();renderSoundBtn();
 (document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(drawBG);
 showIntro();
 requestAnimationFrame(t=>{S.last=t;loop(t)});
