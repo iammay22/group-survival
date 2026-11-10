@@ -218,7 +218,7 @@ button{touch-action:manipulation}
       <div id="card"></div>
     </div>
   </div>
-  <p class="credit">遊戲設計 <b>may22</b></p>
+  <p class="credit">遊戲設計 <b>may22</b>・本遊戲會匿名記錄遊玩次數與成績，不含任何個人資料</p>
 </div>
 
 <div class="modal" id="modal" hidden><div class="sheet box" id="sheet" role="dialog" aria-modal="true"></div></div>
@@ -659,7 +659,7 @@ function showIntro(){
     </ol>
     <p class="clue">分好組後有一整學期的挑戰：分工配對、喬開會時間、處理雷組員、派人解決突發狀況、期末衝刺，最後還要上台報告。這次 A+ 不好拿喔。</p>
     <div class="acts row"><button class="btn pri" id="goRecruit" type="button">開始找組員</button></div>`);
-  $('goRecruit').onclick=()=>{closeModal();SFX.play('start');SFX.bgm(true);S.phase='recruit';S.last=performance.now();
+  $('goRecruit').onclick=()=>{closeModal();SFX.play('start');track('start',{size:S.size,topic:S.topic.n});SFX.bgm(true);S.phase='recruit';S.last=performance.now();
     if(innerWidth<760)$('hud').scrollIntoView({block:'start',behavior:'smooth'});setTimeout(setup,350);setup()};
 }
 function openEncounter(n,approached){
@@ -996,6 +996,7 @@ function finale(){
   const why=[];
   if(!aplus){if(score<94)why.push(`總分要 94 分以上（目前 ${score}）`);if(missing.length)why.push('缺少能用的專長：'+missing.map(k=>SKILLS[k]).join('、'));if(quits)why.push('有組員退組');if(S.M<70)why.push(`組內氣氛要 70 以上（目前 ${Math.round(S.M)}）`)}
   S.result={grade:g[0],line:g[1],score,sP,sM,sC,covN,covT:S.req.length};
+  track('finish',{grade:g[0],score,size:S.size,topic:S.topic.n,progress:Math.round(S.P),mood:Math.round(S.M),coverage:sC,quits});
   $('roundtag').textContent='FINAL · 上台報告 · '+S.topic.n;
   setTimeout(()=>SFX.play(aplus?'aplus':score>=76?'pass':'fail'),200);
   const others=S.npcs.filter(n=>!S.team.includes(n));others.forEach(n=>dex.add(n.key));saveDex();
@@ -1031,6 +1032,18 @@ function closeDex(){closeModal();if(S.phase==='dex')S.phase=prevPhase;if(S.phase
 $('dexBtn').onclick=openDex;
 
 
+
+
+/* ================= ANONYMOUS STATS (to the may22 Google Sheet) ================= */
+const STATS_URL='https://script.google.com/macros/s/AKfycbyHYrt_VDJj9oBs35bBAj473jtaCdzuGDVWZ18HJKmC6ZG8NEH3Qgzh1XpEluFdAI3m/exec';
+const SID=(()=>{try{let v=localStorage.getItem('gs-sid');if(!v){v=Math.random().toString(36).slice(2,10)+Date.now().toString(36);localStorage.setItem('gs-sid',v)}return v}catch(e){return 'anon'}})();
+function track(event,data){
+  if(!STATS_URL||!/github\.io$/.test(location.hostname))return;
+  try{
+    const body=JSON.stringify(Object.assign({event,sid:SID,device:matchMedia('(pointer:coarse)').matches?'手機平板':'電腦',version:'v6'},data||{}));
+    fetch(STATS_URL,{method:'POST',mode:'no-cors',keepalive:true,headers:{'Content-Type':'text/plain;charset=utf-8'},body}).catch(()=>{});
+  }catch(e){}
+}
 
 /* ================= SHARE CARD ================= */
 const GAME_URL='iammay22.github.io/group-survival';
@@ -1098,6 +1111,7 @@ async function buildShareCard(){
 async function openShare(){
   openModal(`<div><div class="eyebrow">分享</div><h2 style="margin:0;font-size:20px;font-weight:900">正在產生成績圖卡…</h2></div>`);
   let c;try{c=await buildShareCard()}catch(e){openModal(`<p class="res">圖卡產生失敗，請再試一次。</p><div class="acts row"><button class="btn pri" id="shClose" type="button">關閉</button></div>`);$('shClose').onclick=closeModal;return}
+  track('share',{grade:S.result.grade,score:S.result.score});
   const url=c.toDataURL('image/png');
   const blob=await new Promise(r=>c.toBlob(r,'image/png'));
   const file=blob&&window.File?new File([blob],`group-survival-${S.result.grade}.png`,{type:'image/png'}):null;
@@ -1183,7 +1197,7 @@ $('soundBtn').onclick=()=>{SFX.toggle();renderSoundBtn();if(SFX.on){SFX.play('go
 document.addEventListener('click',e=>{if(e.target.closest('.btn,.pick')&&e.target.id!=='soundBtn')SFX.play('click')},true);
 
 /* ================= BOOT ================= */
-newGame();setup();renderSoundBtn();
+newGame();setup();renderSoundBtn();track('visit');
 (document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(drawBG);
 showIntro();
 requestAnimationFrame(t=>{S.last=t;loop(t)});
