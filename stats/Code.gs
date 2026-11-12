@@ -5,12 +5,13 @@
  *   2. 上方函式選單選「setup」，按「執行」，依畫面授權。會自動建立「原始資料」和「統計」兩個分頁。
  *   3. 右上角「部署 → 新增部署作業」，類型選「網頁應用程式」，
  *      執行身分選「我」，存取權選「所有人」，按部署，複製「網頁應用程式網址」。
- * 只接收匿名資料：事件、隨機玩家代號、成績、分數、人數、題目、裝置類型。不收任何個人資料。
+ *   （更新版本時：部署 → 管理部署作業 → 鉛筆圖示 → 版本選「新版本」→ 部署，網址不會變。）
+ * 只接收匿名資料：事件、隨機玩家代號、成績、分數、人數、題目、裝置類型、流量來源與來源網域。不收任何個人資料。
  */
 
 const RAW = '原始資料';
 const STATS = '統計';
-const HEADERS = ['時間', '事件', '玩家代號', '成績', '總分', '人數', '題目', '報告進度', '組內氣氛', '專長完整度', '退組人數', '裝置', '版本'];
+const HEADERS = ['時間', '事件', '玩家代號', '成績', '總分', '人數', '題目', '報告進度', '組內氣氛', '專長完整度', '退組人數', '裝置', '版本', '來源', '來源網域'];
 const EVENTS = ['visit', 'start', 'finish', 'share'];
 
 function doPost(e) {
@@ -24,7 +25,7 @@ function doPost(e) {
     sh.appendRow([
       new Date(), d.event, clip_(d.sid, 40), clip_(d.grade, 3), num_(d.score), num_(d.size),
       clip_(d.topic, 30), num_(d.progress), num_(d.mood), num_(d.coverage), num_(d.quits),
-      clip_(d.device, 10), clip_(d.version, 10)
+      clip_(d.device, 10), clip_(d.version, 10), clip_(d.source, 24), clip_(d.ref, 60)
     ]);
     return out_('ok');
   } catch (err) {
@@ -54,7 +55,7 @@ function setup() {
   if (st) ss.deleteSheet(st);
   st = ss.insertSheet(STATS, 0);
   const R = "'" + RAW + "'!";
-  const ev = R + 'B2:B', grade = R + 'D2:D', score = R + 'E2:E', size = R + 'F2:F', dev = R + 'L2:L', sid = R + 'C2:C';
+  const ev = R + 'B2:B', grade = R + 'D2:D', score = R + 'E2:E', size = R + 'F2:F', dev = R + 'L2:L', sid = R + 'C2:C', src = R + 'N2:N', refd = R + 'O2:O';
 
   // 總覽
   st.getRange('A1').setValue('分組求生記 遊玩統計').setFontSize(16).setFontWeight('bold');
@@ -115,12 +116,32 @@ function setup() {
   st.getRange('D16').setValue('各題目平均總分').setFontWeight('bold');
   st.getRange('D17').setFormula('=IFERROR(QUERY(' + "'" + RAW + "'!B2:G" + ',"select G, count(B), avg(E) where B = \'finish\' group by G order by avg(E) desc label G \'題目\', count(B) \'完成局數\', avg(E) \'平均總分\'",0),"還沒有資料")');
 
-  ['A4:B4', 'D4:F4', 'H4:K4', 'H11:I11'].forEach(function (a) {
+
+  // 流量來源
+  st.getRange('M4:R4').setValues([['流量來源', '瀏覽次數', '開始局數', '完成局數', '完成率', '平均總分']]);
+  st.getRange('M5').setFormula('=IFERROR(SORT(UNIQUE(FILTER(' + src + ',' + src + '<>"",' + ev + '="visit"))),"還沒有資料")');
+  const cnt = function (e) {
+    return '=IFERROR(MAP(M5:M40,LAMBDA(s,IF(OR(s="",s="還沒有資料"),"",COUNTIFS(' + ev + ',"' + e + '",' + src + ',s)))),"")';
+  };
+  st.getRange('N5').setFormula(cnt('visit'));
+  st.getRange('O5').setFormula(cnt('start'));
+  st.getRange('P5').setFormula(cnt('finish'));
+  st.getRange('Q5').setFormula('=IFERROR(MAP(O5:O40,P5:P40,LAMBDA(a,b,IF(a="","",IFERROR(b/a,0)))),"")');
+  st.getRange('R5').setFormula('=IFERROR(MAP(M5:M40,LAMBDA(s,IF(OR(s="",s="還沒有資料"),"",IFERROR(AVERAGEIFS(' + score + ',' + ev + ',"finish",' + src + ',s),0)))),"")');
+  st.getRange('Q5:Q40').setNumberFormat('0.0%');
+  st.getRange('R5:R40').setNumberFormat('0.0');
+
+  // 其他網站的網域排行
+  st.getRange('M43').setValue('外部網站來源（前 10 名）').setFontWeight('bold');
+  st.getRange('M44').setFormula('=IFERROR(QUERY(' + "'" + RAW + "'!B2:O" + ',"select O, count(B) where B = \'visit\' and O <> \'\' group by O order by count(B) desc limit 10 label O \'網域\', count(B) \'瀏覽次數\'",0),"還沒有資料")');
+
+  ['A4:B4', 'D4:F4', 'H4:K4', 'H11:I11', 'M4:R4'].forEach(function (a) {
     st.getRange(a).setFontWeight('bold').setBackground('#efe7ff');
   });
   st.setColumnWidths(1, 1, 150);
   st.setColumnWidth(4, 160);
   st.setColumnWidth(8, 120);
+  st.setColumnWidth(13, 150);
 
   // 圖表
   st.insertChart(st.newChart().asColumnChart()
@@ -133,6 +154,11 @@ function setup() {
     .setPosition(38, 8, 0, 0)
     .setOption('title', '每日瀏覽次數').setOption('legend', { position: 'none' })
     .setOption('colors', ['#ff9f7a']).build());
+  st.insertChart(st.newChart().asBarChart()
+    .addRange(st.getRange('M4:N40'))
+    .setPosition(56, 8, 0, 0)
+    .setOption('title', '各來源瀏覽次數').setOption('legend', { position: 'none' })
+    .setOption('colors', ['#ffb38a']).build());
 
   return raw;
 }

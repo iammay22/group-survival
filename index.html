@@ -1036,11 +1036,32 @@ $('dexBtn').onclick=openDex;
 
 /* ================= ANONYMOUS STATS (to the may22 Google Sheet) ================= */
 const STATS_URL='https://script.google.com/macros/s/AKfycbyHYrt_VDJj9oBs35bBAj473jtaCdzuGDVWZ18HJKmC6ZG8NEH3Qgzh1XpEluFdAI3m/exec';
+
+/* traffic source: ?src= / utm_source tag first, then in-app browser, then referrer domain */
+const TRAFFIC=(()=>{
+  let source='直接開啟',ref='';
+  try{
+    const q=new URLSearchParams(location.search);
+    const tag=(q.get('src')||q.get('utm_source')||'').toLowerCase().replace(/[^a-z0-9_\-]/g,'').slice(0,20);
+    const ua=navigator.userAgent||'';
+    if(document.referrer){const h=new URL(document.referrer).hostname.replace(/^www\./,'');if(h&&h!==location.hostname)ref=h}
+    if(tag)source=tag==='share'?'分享圖卡':tag;
+    else if(/\bLine\//i.test(ua))source='LINE';
+    else if(/Instagram/i.test(ua))source='Instagram';
+    else if(/Barcelona/i.test(ua))source='Threads';
+    else if(/FBAN|FBAV|FB_IAB/i.test(ua))source='Facebook';
+    else if(ref){
+      source=/(^|\.)google\./.test(ref)?'Google 搜尋':/(^|\.)(bing\.com|yahoo\.)/.test(ref)?'其他搜尋':/(^|\.)line\.me$/.test(ref)?'LINE':/instagram\.com$/.test(ref)?'Instagram':/(facebook\.com|fb\.com)$/.test(ref)?'Facebook':/threads\.(net|com)$/.test(ref)?'Threads':/dcard\.tw$/.test(ref)?'Dcard':/(^|\.)github\.com$/.test(ref)?'GitHub':'其他網站';
+    }
+    if(q.has('src')||[...q.keys()].some(k=>k.startsWith('utm_'))){['src','utm_source','utm_medium','utm_campaign','utm_content','utm_term'].forEach(k=>q.delete(k));const rest=q.toString();history.replaceState(null,'',location.pathname+(rest?'?'+rest:'')+location.hash)}
+  }catch(e){}
+  return{source,ref};
+})();
 const SID=(()=>{try{let v=localStorage.getItem('gs-sid');if(!v){v=Math.random().toString(36).slice(2,10)+Date.now().toString(36);localStorage.setItem('gs-sid',v)}return v}catch(e){return 'anon'}})();
 function track(event,data){
   if(!STATS_URL||!/github\.io$/.test(location.hostname))return;
   try{
-    const body=JSON.stringify(Object.assign({event,sid:SID,device:matchMedia('(pointer:coarse)').matches?'手機平板':'電腦',version:'v6'},data||{}));
+    const body=JSON.stringify(Object.assign({event,sid:SID,device:matchMedia('(pointer:coarse)').matches?'手機平板':'電腦',version:'v7',source:TRAFFIC.source,ref:TRAFFIC.ref},data||{}));
     fetch(STATS_URL,{method:'POST',mode:'no-cors',keepalive:true,headers:{'Content-Type':'text/plain;charset=utf-8'},body}).catch(()=>{});
   }catch(e){}
 }
@@ -1129,8 +1150,8 @@ async function openShare(){
     </div>
     <p class="note" id="shMsg" aria-live="polite"></p>`);
   const msg=t=>{$('shMsg').textContent=t};
-  if(canShare)$('shShare').onclick=async()=>{try{await navigator.share({files:[file],title:'分組求生記',text:`我在分組求生記拿到 ${S.result.grade}！你也來試試：https://${GAME_URL}/`})}catch(e){if(e&&e.name!=='AbortError')msg('這個瀏覽器不能直接分享，請改用下載或長按圖片。')}};
-  $('shCopy').onclick=async()=>{const u=`https://${GAME_URL}/`;try{await navigator.clipboard.writeText(u);msg('已複製遊戲網址！')}catch(e){msg('請手動複製：'+u)}};
+  if(canShare)$('shShare').onclick=async()=>{try{await navigator.share({files:[file],title:'分組求生記',text:`我在分組求生記拿到 ${S.result.grade}！你也來試試：https://${GAME_URL}/?src=share`})}catch(e){if(e&&e.name!=='AbortError')msg('這個瀏覽器不能直接分享，請改用下載或長按圖片。')}};
+  $('shCopy').onclick=async()=>{const u=`https://${GAME_URL}/?src=share`;try{await navigator.clipboard.writeText(u);msg('已複製遊戲網址！')}catch(e){msg('請手動複製：'+u)}};
   $('shClose').onclick=closeModal;
 }
 
