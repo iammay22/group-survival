@@ -35,9 +35,7 @@ function doPost(e) {
   }
 }
 
-function doGet() {
-  return out_('分組求生記統計接收中');
-}
+// doGet 在「排名功能.gs」裡（含即時排名）。
 
 function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();

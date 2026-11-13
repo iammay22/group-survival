@@ -168,7 +168,27 @@ button{touch-action:manipulation}
 .dx.lock{background:var(--floor);color:var(--muted);border-style:dashed}
 .dx strong{font-size:15px}
 .dx p{margin:4px 0 0}
-.shareimg{display:block;width:100%;max-width:420px;margin:0 auto;border:3px solid var(--ink);image-rendering:auto}
+.shareimg{display:block;width:100%;max-width:420px;margin:0 auto;border:3px solid var(--ink);-webkit-touch-callout:default;user-select:auto;-webkit-user-select:auto}
+.stamp-wrap{display:flex;flex-direction:column;gap:2px;margin-top:6px}
+.stamp{display:inline-block;align-self:flex-start;white-space:nowrap;max-width:100%;font-size:clamp(22px,7vw,32px);margin:4px 0 6px;font-weight:900;line-height:1.25;padding:4px 10px;background:var(--gold);border:3px solid var(--ink);box-shadow:3px 3px 0 var(--ink);transform:rotate(-3deg);animation:stamp .55s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes stamp{0%{transform:scale(2.4) rotate(-12deg);opacity:0}100%{transform:scale(1) rotate(-3deg);opacity:1}}
+.roast{margin:10px 0 0;font-weight:700;color:var(--muted)}
+.pct{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:12px 16px;background:var(--ink);color:#fff;font-weight:900;font-size:18px}
+.pct b{font-family:var(--px);font-size:clamp(28px,8vw,40px);color:var(--gold);font-variant-numeric:tabular-nums;line-height:1.1}
+.pct small{flex-basis:100%;font-size:12px;font-weight:700;color:#d8d2f0}
+.sharezone{display:flex;flex-direction:column;gap:10px}
+.cardbox{position:relative;max-width:420px;width:100%;margin:0 auto}
+.presshint{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:13px;font-weight:700;padding:4px 10px;pointer-events:none;white-space:nowrap;animation:hintpulse 1.6s ease-in-out infinite}
+@keyframes hintpulse{50%{opacity:.55}}
+.skeleton{aspect-ratio:4/5;max-width:100%;border:3px dashed var(--muted);display:grid;place-items:center;background:linear-gradient(100deg,var(--floor) 30%,#fff 50%,var(--floor) 70%);background-size:300% 100%;animation:shimmer 1.2s linear infinite;color:var(--muted);font-weight:700}
+@keyframes shimmer{to{background-position:-150% 0}}
+.sharebar{position:sticky;bottom:max(8px,env(safe-area-inset-bottom,0px));z-index:5;display:flex;flex-direction:column;gap:8px;padding:10px;background:var(--panel);border:3px solid var(--ink);box-shadow:4px 4px 0 var(--ink)}
+.sharebar-row{display:flex;gap:8px}
+.sharebar-row .btn{flex:1;text-align:center;text-decoration:none}
+.btn.wait{opacity:.45;pointer-events:none}
+.sharetext{width:100%;font-family:var(--zh);font-size:14px;padding:8px;border:2px solid var(--ink);background:#fff;color:var(--ink);user-select:text;-webkit-user-select:text}
+.gtoast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:30;background:var(--ink);color:#fff;padding:10px 16px;font-weight:700;font-size:14px;box-shadow:3px 3px 0 var(--gold);max-width:calc(100% - 32px);text-align:center}
+@media (prefers-reduced-motion:reduce){.stamp,.presshint,.skeleton{animation:none}}
 .credit{text-align:center;font-size:12px;color:var(--muted);margin:4px 0 0}
 .credit b{font-family:var(--px);font-size:10px;color:var(--ink);letter-spacing:.05em}
 .pf.bonk{animation:bonk .4s steps(4)}
@@ -221,6 +241,7 @@ button{touch-action:manipulation}
   <p class="credit">遊戲設計 <b>may22</b>・本遊戲會匿名記錄遊玩次數與成績，不含任何個人資料</p>
 </div>
 
+<div class="gtoast" id="gtoast" role="status" hidden></div>
 <div class="modal" id="modal" hidden><div class="sheet box" id="sheet" role="dialog" aria-modal="true"></div></div>
 
 <script>
@@ -497,6 +518,7 @@ function newGame(){
     const fixed=!o.bad&&GOOD[o.k].skill;return{
     id:i,name:names[i],key:o.k,bad:o.bad,skill:fixed||skillPool[i],look:randLook(),x:p.x,y:p.y,path:null,dir:'down',moving:false,step:0,state:'wander',cd:0,talked:false,wait:rnd(0,1.5),stuck:0,appT:0,repath:0,gone:false,fixed:0}});
   S={phase:'intro',time:0,size,need,topic,req,mySkill:pick(Object.keys(SKILLS)),timeLeft:35+14*need,npcs,
+    st:{hit:0,scold:0,best:0,badSeen:0,selfTasks:0,selfEvents:0,schedAll:false,rush:0,qte:0},
     player:{x:160,y:182,dir:'up',moving:false,step:0,path:null,chase:null,repath:0},team:[],trail:[{x:160,y:182,dir:'up'}],approachIn:8,encCd:0,P:0,M:50,queue:[],last:performance.now(),k:1.8/need,mark:null};
   renderSlots();updTimer();renderTopic();drawBG();
 }
@@ -772,6 +794,7 @@ function badCard(m,ri){
   $('card').scrollIntoView({block:'nearest',behavior:'smooth'});
   $('card').querySelectorAll('.opts .btn').forEach(b=>b.onclick=()=>{
     const o=opts[+b.dataset.i];if(o.best)m.fixed++;
+    S.st.badSeen++;if(o.best)S.st.best++;if(o.kind==='hit')S.st.hit++;if(o.kind==='scold')S.st.scold++;
     SFX.play(o.kind==='hit'?'hit':o.kind==='scold'?'scold':o.best?'good':'bad');if(o.q)setTimeout(()=>SFX.play('quit'),350);
     if(o.q){m.gone=true;m.quit=true}
     const best=opts.find(x=>x.best);
@@ -810,7 +833,7 @@ function assignCard(){
     $('aOk').disabled=sel.includes(null);
   });
   $('aOk').onclick=()=>{
-    let match=0;const load=new Map();
+    let match=0;const load=new Map();S.st.selfTasks=sel.filter(i=>ps[i].me).length;
     S.req.forEach((k,ti)=>{const m=ps[sel[ti]];if(m.skill===k)match++;load.set(sel[ti],(load.get(sel[ti])||0)+1)});
     const maxLoad=Math.max(...load.values());const heavy=ps[[...load].find(([,c])=>c===maxLoad)[0]];
     const p=match*3+(S.req.length-match);let mm=0,note='';
@@ -846,7 +869,7 @@ function scheduleCard(){
       $('card').querySelectorAll(`td[data-c="${c}"]`).forEach(td=>td.classList.add('hit'));
       const miss=ps.filter((m,i)=>busy[i].has(c));
       const when=`週${DAYS[c/3|0]}${SLOTN[c%3]}`;
-      if(!miss.length){p=6;mm=5;html=`${why||''}約在${when}，全員到齊！討論超有效率。`}
+      if(!miss.length){S.st.schedAll=true;p=6;mm=5;html=`${why||''}約在${when}，全員到齊！討論超有效率。`}
       else if(miss.length===1){p=3;mm=0;html=`${why||''}約在${when}，${esc(miss[0].name)}沒辦法來，事後還要再跟他說明一次。`}
       else{p=1;mm=-3;html=`${why||''}約在${when}，${miss.map(m=>esc(m.name)).join('、')}都不能來，會議開得零零落落。`}
     }
@@ -885,7 +908,7 @@ function rushCard(){
   });
   const end=()=>{
     running=false;cancelAnimationFrame(raf);holes.forEach((h,i)=>clearHole(i));
-    const p=clamp(Math.round(score*.7),0,10),mm=score>=12?3:score<6?-3:0;SFX.play(score>=10?'good':'bad');
+    S.st.rush=score;const p=clamp(Math.round(score*.7),0,10),mm=score>=12?3:score<6?-3:0;SFX.play(score>=10?'good':'bad');
     $('rRes').outerHTML=`<p class="res">你完成了 ${score} 件待辦事項。${score>=12?'效率爆表！':score>=6?'還算順利。':'被耍廢誘惑打敗了……'}</p>${apply(p,mm)}
       <div class="lesson"><b>神組員小撇步</b>把大工作拆成小待辦，一次專心做一件；手機放遠一點，做完一項就劃掉。</div>${nextBtn('繼續')}`;
     bindNext();
@@ -941,7 +964,7 @@ function runQTE(m){
     sum+=pts;$('qF').textContent=txt;round++;SFX.play(pts===4?'perfect':pts?'tap':'miss');
     if(round<3){setTimeout(setRound,750)}else{
       S.qte=null;cancelAnimationFrame(raf);$('qGo').disabled=true;
-      const p=Math.round(sum*.85),mm=sum>=9?4:sum<=3?-4:0;
+      S.st.qte=sum;const p=Math.round(sum*.85),mm=sum>=9?4:sum<=3?-4:0;
       setTimeout(()=>{
         $('qGo').outerHTML=`<p class="res">報告結束，台風得分 ${sum} / 12。</p>${apply(p,mm)}
           <div class="lesson"><b>神組員小撇步</b>上台前至少完整彩排一次；每個人講自己做的部分最熟；被問問題時先重述問題，再回答重點。</div>${nextBtn('看最終成績')}`;
@@ -968,7 +991,7 @@ function eventCard(e){
     let p,mm,txt;
     if(b.dataset.p==='ta'){p=4;mm=1;txt='助教給了一些方向，勉強過關。'}
     else{
-      const m=ps[+b.dataset.p],who=m.me?'你':m.name;
+      const m=ps[+b.dataset.p],who=m.me?'你':m.name;if(m.me)S.st.selfEvents++;
       if(m.skill===sk&&reliable(m)){p=9;mm=3;txt=`${who}正好擅長「${name}」，漂亮解決！`}
       else if(m.skill===sk){p=2;mm=-3;txt=`${who}明明擅長，但你還沒處理好他的問題，他隨便敷衍了一下。`}
       else if(m.me){p=5;mm=-2;txt=`你不擅長「${name}」，熬夜硬補出來，累壞了。`}
@@ -995,21 +1018,39 @@ function finale(){
   const g=aplus?['A+','教授說這是今年最好的一組報告！']:score>=86?['A','很棒的成績，但離 A+ 還差一點。']:score>=76?['B','還不錯，但有些雷沒拆乾淨。']:score>=64?['C','低空飛過……下次早點處理問題。']:['F','重修警報！雷組員贏了這一局。'];
   const why=[];
   if(!aplus){if(score<94)why.push(`總分要 94 分以上（目前 ${score}）`);if(missing.length)why.push('缺少能用的專長：'+missing.map(k=>SKILLS[k]).join('、'));if(quits)why.push('有組員退組');if(S.M<70)why.push(`組內氣氛要 70 以上（目前 ${Math.round(S.M)}）`)}
-  S.result={grade:g[0],line:g[1],score,sP,sM,sC,covN,covT:S.req.length};
+  S.result={grade:g[0],line:g[1],score,sP,sM,sC,covN,covT:S.req.length,quits,pct:null};
+  S.result.title=pickTitle(S.result);
   track('finish',{grade:g[0],score,size:S.size,topic:S.topic.n,progress:Math.round(S.P),mood:Math.round(S.M),coverage:sC,quits});
   $('roundtag').textContent='FINAL · 上台報告 · '+S.topic.n;
   setTimeout(()=>SFX.play(aplus?'aplus':score>=76?'pass':'fail'),200);
   const others=S.npcs.filter(n=>!S.team.includes(n));others.forEach(n=>dex.add(n.key));saveDex();
   const row=n=>{const d=n.bad?BAD[n.key]:GOOD[n.key];return `<div class="li"><img alt="" src="${portrait(n.look)}"><div><span class="tag ${n.bad?'bad':'good'}">${n.bad?'雷':'神'}</span><b>${esc(n.name)}</b>：${esc(d.name)}・${esc(SKILLS[n.skill])}${n.quit?'（退組了）':n.bad&&n.fixed===2?'（被你感化了）':''}</div></div>`};
-  $('card').innerHTML=`<div class="card"><div class="final"><div class="grade">${g[0]}</div><div><div class="eyebrow">${S.size} 人一組 · 最終分數 ${score} / 100</div><h3>${g[1]}</h3></div></div>
+  const T=S.result.title;
+  $('card').innerHTML=`<div class="card">
+    <div class="final"><div class="grade">${g[0]}</div><div><div class="eyebrow">${S.size} 人一組 · 最終分數 ${score} / 100</div><h3>${esc(g[1])}</h3></div></div>
+    <div class="stamp-wrap"><span class="eyebrow">你的稱號</span><span class="stamp">【${esc(T.name)}】</span><p class="roast">${esc(T.roast)}</p></div>
+    <div class="pct" aria-live="polite"><span>擊敗了</span><b><span id="pctNum">…</span>%</b><span>的分組受難者</span><small id="pctNote">排名計算中…</small></div>
+    <div class="sharezone">
+      <div class="cardbox" id="cardBox"><div class="skeleton" aria-label="圖卡產生中"><span>成績圖卡產生中…</span></div></div>
+      <div class="sharebar" id="shareBar">
+        <button class="btn go big" id="shCopy" type="button" disabled>一鍵複製分享文案</button>
+        <div class="sharebar-row">
+          <button class="btn pri" id="shShare" type="button" hidden>分享圖片</button>
+          <a class="btn wait" id="shSave" aria-disabled="true" href="#">儲存圖片</a>
+        </div>
+      </div>
+      <textarea id="shareTextBox" class="sharetext" rows="4" readonly hidden aria-label="分享文案"></textarea>
+    </div>
     <div class="score"><span>報告進度（${Math.round(S.P)}/100）</span><b>${sP}/60</b><span>組內氣氛（${Math.round(S.M)}/100）</span><b>${sM}/15</b><span>專長完整度（${covN}/${S.req.length}）</span><b>${sC}/25</b></div>
     ${why.length?`<div class="lesson"><b>拿 A+ 的條件還差：</b>${why.map(esc).join('；')}</div>`:''}
     <div class="eyebrow">你的組員</div><div class="list">${S.team.map(row).join('')}</div>
     <div class="eyebrow">其他同學的真面目</div><div class="list">${others.map(row).join('')}</div>
-    <div class="acts row"><button class="btn go" id="shareCard" type="button">分享成績圖卡</button><button class="btn pri" id="again" type="button">再玩一次</button><button class="btn" id="seeDex" type="button">看組員圖鑑</button></div>
+    <div class="acts row"><button class="btn pri" id="again" type="button">再玩一次</button><button class="btn" id="seeDex" type="button">看組員圖鑑</button></div>
     <p class="credit">分組求生記・遊戲設計 <b>may22</b></p></div>`;
-  $('card').scrollIntoView({block:'nearest',behavior:'smooth'});
-  $('again').onclick=restart;$('seeDex').onclick=openDex;$('shareCard').onclick=openShare;
+  $('card').scrollIntoView({block:'start',behavior:'smooth'});
+  $('again').onclick=restart;$('seeDex').onclick=openDex;$('shCopy').onclick=copyShareText;
+  $('shSave').addEventListener('click',e=>{if($('shSave').classList.contains('wait'))e.preventDefault()});
+  fillSocial();
 }
 function restart(){
   stopMG();SFX.bgm(false);
@@ -1061,14 +1102,51 @@ const SID=(()=>{try{let v=localStorage.getItem('gs-sid');if(!v){v=Math.random().
 function track(event,data){
   if(!STATS_URL||!/github\.io$/.test(location.hostname))return;
   try{
-    const body=JSON.stringify(Object.assign({event,sid:SID,device:matchMedia('(pointer:coarse)').matches?'手機平板':'電腦',version:'v7',source:TRAFFIC.source,ref:TRAFFIC.ref},data||{}));
+    const body=JSON.stringify(Object.assign({event,sid:SID,device:matchMedia('(pointer:coarse)').matches?'手機平板':'電腦',version:'v8',source:TRAFFIC.source,ref:TRAFFIC.ref},data||{}));
     fetch(STATS_URL,{method:'POST',mode:'no-cors',keepalive:true,headers:{'Content-Type':'text/plain;charset=utf-8'},body}).catch(()=>{});
   }catch(e){}
 }
 
-/* ================= SHARE CARD ================= */
+/* ================= SOCIAL RESULT: titles, ranking, share card ================= */
 const GAME_URL='iammay22.github.io/group-survival';
+const SHARE_URL=`https://${GAME_URL}/?src=share`;
 const GRADE_COLOR={'A+':'#ffcf4d','A':'#7fd3ae','B':'#b9a6f2','C':'#ffb38a','F':'#ff6f6f'};
+/* snapshot of 304 finished games (2026-11-13), used when the live ranking can't be fetched */
+const SCORE_SNAPSHOT={n:304,hist:[[30,1],[37,1],[42,1],[48,1],[51,1],[53,1],[54,1],[55,2],[56,1],[59,2],[60,1],[62,4],[63,3],[64,3],[65,6],[66,5],[67,2],[68,4],[69,4],[70,4],[71,3],[72,3],[73,2],[74,2],[75,3],[76,4],[77,6],[78,8],[79,5],[80,6],[81,2],[82,2],[83,7],[84,7],[85,4],[86,6],[87,10],[88,12],[89,10],[90,8],[91,9],[92,13],[93,9],[94,9],[95,9],[96,8],[97,14],[98,18],[99,36],[100,21]]};
+let distCache=null;
+async function getDist(){
+  if(distCache)return distCache;
+  if(STATS_URL&&/github\.io$/.test(location.hostname)){
+    try{
+      const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),3500);
+      const r=await fetch(STATS_URL+'?scores=1',{signal:ctl.signal});clearTimeout(t);
+      const d=await r.json();
+      if(d&&d.n>=30&&Array.isArray(d.hist)){distCache=d;return d}
+    }catch(e){}
+  }
+  return SCORE_SNAPSHOT;
+}
+function percentile(score,d){
+  let below=0,eq=0;d.hist.forEach(([s,c])=>{if(s<score)below+=c;else if(s===score)eq+=c});
+  return clamp(Math.round((below+eq*.5)/Math.max(1,d.n)*100),1,99);
+}
+function pickTitle(R){
+  const st=S.st,team=S.team,bad=team.filter(m=>m.bad),good=team.filter(m=>!m.bad);
+  const T=(name,roast)=>({name,roast});
+  if(R.grade==='A+'&&!bad.length)return T('天選之組','組員全是神，你只負責按讚。');
+  if(R.grade==='A+'&&bad.every(m=>m.fixed===2))return T('通靈組長','雷組員到你手上，全都變成神。');
+  if(R.quits>0)return T('退組製造機','你一開口，組員就退選。');
+  if(st.hit>=2)return T('紙扇判官','扇子比簡報還常拿出來。');
+  if(st.scold>=2)return T('碎碎念大魔王','群組裡最長的訊息都是你打的。');
+  if(st.selfTasks>=2||st.selfEvents>=2)return T('卑微工具人','全組的報告，都是你的報告。');
+  if(bad.length>=3&&['A+','A','B'].includes(R.grade))return T('雷包收容所所長','三個雷都拆得掉，你可以去當拆彈專家了。');
+  if(good.length>=2&&(st.badSeen===0||st.best/st.badSeen<.5))return T('躺分大師','神隊友在前面衝，你在後面躺。');
+  if(st.schedAll&&st.rush>=12)return T('時間管理大師','全員到齊加上衝刺爆表，你的行事曆比教授還滿。');
+  if(st.qte>=10)return T('上台影帝','內容普通沒關係，台風才是一切。');
+  if(R.grade==='F')return T('期末燃燒殆盡','明年同一堂課，不見不散。');
+  return T('普通的分組倖存者','活下來了，這就是勝利。');
+}
+function shareText(){const R=S.result;return `我在《分組求生記》被封為【${R.title.name}】，擊敗了 ${R.pct}% 的分組受難者！${R.title.roast} 你的組員是神還是雷？來挑戰 → ${SHARE_URL}`}
 function charCanvas(L){const t=document.createElement('canvas');t.width=10;t.height=16;drawChar(t.getContext('2d'),5,16,L,0,'down',false);return t}
 async function buildShareCard(){
   try{await Promise.all([document.fonts.load('900 60px "Noto Sans TC"'),document.fonts.load('700 30px "Noto Sans TC"'),document.fonts.load('100px "Press Start 2P"')])}catch(e){}
@@ -1079,80 +1157,82 @@ async function buildShareCard(){
   const box=(x,y,w,h,fill,sh=10)=>{g.fillStyle=INK;g.fillRect(x+sh,y+sh,w,h);g.fillStyle=fill;g.fillRect(x,y,w,h);g.lineWidth=6;g.strokeStyle=INK;g.strokeRect(x+3,y+3,w-6,h-6)};
   const txt=(t,x,y,size,w,col,align)=>{g.font=`${w} ${size}px ${zh}`;g.fillStyle=col;g.textAlign=align||'left';g.fillText(t,x,y);g.textAlign='left'};
   const wrap=(t,maxW)=>{const out=[];let line='';for(const ch of t){if(g.measureText(line+ch).width>maxW&&line){out.push(line);line=ch}else line+=ch}if(line)out.push(line);return out};
-  // background
   g.fillStyle='#d9e1ff';g.fillRect(0,0,Wc,Hc);g.fillStyle='rgba(43,36,64,.06)';
   for(let x=0;x<Wc;x+=36)g.fillRect(x,0,2,Hc);for(let y=0;y<Hc;y+=36)g.fillRect(0,y,Wc,2);
   box(60,56,950,1220,PANEL);
-  // header
-  g.font=`900 68px ${zh}`;g.fillStyle='#ffb38a';g.fillText('分組求生記',109,159);g.fillStyle=INK;g.fillText('分組求生記',104,154);
-  g.font=`700 28px ${zh}`;g.fillStyle=MUTED;
-  const sub=`期末專題「${S.topic.n}」・${S.size} 人一組`;g.fillText(sub,104,206);
-  // grade
-  box(104,244,270,270,GRADE_COLOR[R.grade]||'#ffcf4d',8);
-  g.font=`${R.grade.length>1?92:120}px ${pxf}`;g.fillStyle='#ffb38a';g.textAlign='center';g.fillText(R.grade,244,440);g.fillStyle=INK;g.fillText(R.grade,239,435);g.textAlign='left';
-  // right column
+  g.font=`900 64px ${zh}`;g.fillStyle='#ffb38a';g.fillText('分組求生記',109,151);g.fillStyle=INK;g.fillText('分組求生記',104,146);
+  txt(`期末專題「${S.topic.n}」・${S.size} 人一組`,104,196,28,700,MUTED);
+  // grade + score
+  box(104,236,270,290,GRADE_COLOR[R.grade]||'#ffcf4d',8);
+  g.font=`${R.grade.length>1?92:120}px ${pxf}`;g.textAlign='center';g.fillStyle='#ffb38a';g.fillText(R.grade,244,420);g.fillStyle=INK;g.fillText(R.grade,239,415);
+  g.font=`22px ${pxf}`;g.fillText(`${R.score}/100`,239,488);g.textAlign='left';
+  // title stamp
   const rx=420,rw=550;
-  g.font=`28px ${pxf}`;g.fillStyle=INK;g.fillText(`${R.score}/100`,rx,290);
-  g.font=`900 34px ${zh}`;const lines=wrap(R.line,rw);lines.slice(0,2).forEach((l,i)=>{g.fillStyle=INK;g.fillText(l,rx,348+i*44)});
-  const barY=lines.length>1?424:384;
-  [['報告進度',R.sP,60,'#7fd3ae'],['組內氣氛',R.sM,15,'#ffb38a'],['專長完整',R.sC,25,'#b9a6f2']].forEach(([lab,v,mx,col],i)=>{
-    const y=barY+i*36;txt(lab,rx,y+20,22,700,MUTED);
-    const bx=rx+110,bw=rw-200;g.fillStyle='#fff';g.fillRect(bx,y,bw,24);g.fillStyle=col;g.fillRect(bx,y,Math.round(bw*v/mx),24);g.lineWidth=4;g.strokeStyle=INK;g.strokeRect(bx,y,bw,24);
-    g.font=`16px ${pxf}`;g.fillStyle=INK;g.fillText(`${v}/${mx}`,bx+bw+14,y+21);
-  });
+  txt('你的稱號',rx,276,24,700,MUTED);
+  g.save();g.translate(rx+8,300);g.rotate(-0.035);
+  g.font=`900 54px ${zh}`;const tw=Math.min(rw-10,g.measureText(`【${R.title.name}】`).width+24);
+  g.fillStyle='#ffcf4d';g.fillRect(0,0,tw,78);g.lineWidth=5;g.strokeStyle=INK;g.strokeRect(0,0,tw,78);
+  g.fillStyle=INK;g.fillText(`【${R.title.name}】`,8,60,tw-16);g.restore();
+  g.font=`700 26px ${zh}`;wrap(R.title.roast,rw).slice(0,2).forEach((l,i)=>{g.fillStyle=INK;g.fillText(l,rx,426+i*36)});
+  // percentile pill
+  g.fillStyle=INK;g.fillRect(rx,466,rw,60);
+  g.font=`900 30px ${zh}`;g.fillStyle='#fff';g.fillText('擊敗了',rx+20,507);
+  const w1=g.measureText('擊敗了 ').width;g.font=`26px ${pxf}`;g.fillStyle='#ffcf4d';g.fillText(`${R.pct}%`,rx+20+w1,509);
+  const w2=g.measureText(`${R.pct}% `).width;g.font=`900 30px ${zh}`;g.fillStyle='#fff';g.fillText('的分組受難者',rx+20+w1+w2,507);
   // team
-  g.fillStyle=INK;g.fillRect(104,556,866,4);
-  txt('我的組員',104,606,30,900,INK);
+  g.fillStyle=INK;g.fillRect(104,566,866,4);
+  txt('我的組員',104,614,30,900,INK);
   const nb=S.team.filter(m=>m.bad).length,ng=S.team.length-nb;
-  txt(`雷 ${nb} 位・神 ${ng} 位`,970,606,24,700,MUTED,'right');
+  txt(`雷 ${nb} 位・神 ${ng} 位`,970,614,24,700,MUTED,'right');
   const rows=[{me:true,name:'你',look:PLAYER_LOOK,skill:S.mySkill},...S.team];
-  const rh=Math.min(96,Math.floor(520/rows.length));
+  const rh=Math.min(92,Math.floor(510/rows.length));
   rows.forEach((m,i)=>{
-    const y=632+i*rh;g.globalAlpha=m.quit?.45:1;
+    const y=638+i*rh;g.globalAlpha=m.quit?.45:1;
     g.fillStyle=FLOOR;g.fillRect(104,y,64,rh-12);g.drawImage(charCanvas(m.look),112,y+(rh-12-72)/2,45,72);
     txt(m.name,190,y+44,32,900,INK);
     const tagCol=m.me?'#ffcf4d':m.bad?'#ff6f6f':'#2fae7d',tagT=m.me?'我':m.bad?'雷':'神';
     g.fillStyle=tagCol;g.fillRect(330,y+10,48,44);g.lineWidth=3;g.strokeStyle=INK;g.strokeRect(330,y+10,48,44);
     txt(tagT,354,y+43,26,900,m.me?INK:'#fff','center');
-    const type=m.me?'主角':(m.bad?BAD[m.key]:GOOD[m.key]).name;
-    txt(type,398,y+44,30,700,INK);
+    txt(m.me?R.title.name:(m.bad?BAD[m.key]:GOOD[m.key]).name,398,y+44,30,700,INK);
     const note=m.quit?'退組了':m.bad&&m.fixed===2?'被你感化了':'';
     if(note)txt(note,190,y+76,20,700,MUTED);
-    g.font=`700 22px ${zh}`;const sk=SKILLS[m.skill],sw=g.measureText(sk).width+24;
-    const ok=S.req.includes(m.skill);g.fillStyle=ok?'#7fd3ae':'#fff';g.fillRect(970-sw,y+14,sw,38);g.lineWidth=3;g.strokeStyle=INK;g.strokeRect(970-sw,y+14,sw,38);
+    g.font=`700 22px ${zh}`;const sk=SKILLS[m.skill],sw=g.measureText(sk).width+24,ok=S.req.includes(m.skill);
+    g.fillStyle=ok?'#7fd3ae':'#fff';g.fillRect(970-sw,y+14,sw,38);g.lineWidth=3;g.strokeStyle=INK;g.strokeRect(970-sw,y+14,sw,38);
     txt(sk,970-sw/2,y+41,22,700,INK,'center');g.globalAlpha=1;
   });
-  // footer
   g.fillStyle=INK;g.fillRect(104,1168,866,4);
-  txt(R.grade==='A+'?'我拿到 A+ 了，你也來挑戰！':'你能拿到 A+ 嗎？來挑戰看看！',104,1218,30,900,INK);
+  txt('你的組員是神還是雷？來挑戰！',104,1218,30,900,INK);
   g.font=`16px ${pxf}`;g.fillStyle=MUTED;g.fillText(GAME_URL,104,1252);
   g.font=`700 22px ${zh}`;g.textAlign='right';g.fillText('遊戲設計 may22',970,1252);g.textAlign='left';
   return c;
 }
-async function openShare(){
-  openModal(`<div><div class="eyebrow">分享</div><h2 style="margin:0;font-size:20px;font-weight:900">正在產生成績圖卡…</h2></div>`);
-  let c;try{c=await buildShareCard()}catch(e){openModal(`<p class="res">圖卡產生失敗，請再試一次。</p><div class="acts row"><button class="btn pri" id="shClose" type="button">關閉</button></div>`);$('shClose').onclick=closeModal;return}
-  track('share',{grade:S.result.grade,score:S.result.score});
+let gToastT;
+function gToast(msg){const t=$('gtoast');t.textContent=msg;t.hidden=false;clearTimeout(gToastT);gToastT=setTimeout(()=>t.hidden=true,2600)}
+async function copyShareText(){
+  const text=shareText();
+  try{await navigator.clipboard.writeText(text);SFX.play('good');gToast('已複製！貼到 Threads 或 IG 限動吧');track('share',{grade:S.result.grade,score:S.result.score})}
+  catch(e){const ta=$('shareTextBox');ta.hidden=false;ta.value=text;ta.focus();ta.select();gToast('請長按下方文字，選「全選 → 拷貝」')}
+}
+function countUp(el,to){
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){el.textContent=to;return}
+  const t0=performance.now(),dur=900;const step=now=>{const k=Math.min(1,(now-t0)/dur);el.textContent=Math.round(to*(1-Math.pow(1-k,3)));if(k<1)requestAnimationFrame(step)};requestAnimationFrame(step);
+}
+async function fillSocial(){
+  const R=S.result,d=await getDist();
+  R.pct=percentile(R.score,d);R.n=d.n;
+  if(!$('pctNum'))return;
+  countUp($('pctNum'),R.pct);$('pctNote').textContent=`根據 ${d.n} 局玩家成績${d===SCORE_SNAPSHOT?'（離線快照）':''}`;
+  let c;try{c=await buildShareCard()}catch(e){$('cardBox').innerHTML='<p class="res">圖卡產生失敗，請按「再玩一次」重新試試。</p>';return}
   const url=c.toDataURL('image/png');
   const blob=await new Promise(r=>c.toBlob(r,'image/png'));
-  const file=blob&&window.File?new File([blob],`group-survival-${S.result.grade}.png`,{type:'image/png'}):null;
+  const fname=`分組求生記-${R.title.name}.png`;
+  const file=blob&&window.File?new File([blob],fname,{type:'image/png'}):null;
   const canShare=!!(file&&navigator.canShare&&navigator.canShare({files:[file]}));
-  const bUrl=blob?URL.createObjectURL(blob):url;
-  SFX.play('good');
-  openModal(`<div><div class="eyebrow">分享</div><h2 style="margin:0;font-size:20px;font-weight:900">你的成績圖卡</h2></div>
-    <img class="shareimg" alt="分組求生記成績圖卡：${esc(S.result.grade)}，${S.result.score} 分" src="${url}">
-    <p class="note">手機可以<b>長按圖片</b>儲存或分享；電腦可以在圖片上按右鍵「另存圖片」。</p>
-    <div class="acts row">
-      ${canShare?'<button class="btn go" id="shShare" type="button">分享到…</button>':''}
-      <a class="btn pri" id="shDl" href="${bUrl}" download="group-survival-${esc(S.result.grade)}.png">下載圖片</a>
-      <button class="btn" id="shCopy" type="button">複製遊戲網址</button>
-      <button class="btn" id="shClose" type="button">關閉</button>
-    </div>
-    <p class="note" id="shMsg" aria-live="polite"></p>`);
-  const msg=t=>{$('shMsg').textContent=t};
-  if(canShare)$('shShare').onclick=async()=>{try{await navigator.share({files:[file],title:'分組求生記',text:`我在分組求生記拿到 ${S.result.grade}！你也來試試：https://${GAME_URL}/?src=share`})}catch(e){if(e&&e.name!=='AbortError')msg('這個瀏覽器不能直接分享，請改用下載或長按圖片。')}};
-  $('shCopy').onclick=async()=>{const u=`https://${GAME_URL}/?src=share`;try{await navigator.clipboard.writeText(u);msg('已複製遊戲網址！')}catch(e){msg('請手動複製：'+u)}};
-  $('shClose').onclick=closeModal;
+  $('cardBox').innerHTML=`<img class="shareimg" id="shareImg" alt="成績圖卡：${esc(R.title.name)}，${esc(R.grade)}，擊敗了 ${R.pct}% 的分組受難者" src="${url}">${matchMedia('(pointer:coarse)').matches?'<span class="presshint">長按圖片即可儲存</span>':''}`;
+  const dl=$('shSave');dl.href=blob?URL.createObjectURL(blob):url;dl.download=fname;dl.classList.remove('wait');dl.removeAttribute('aria-disabled');
+  dl.onclick=()=>{track('share',{grade:R.grade,score:R.score});gToast('圖片已下載；手機也可以長按圖片儲存')};
+  $('shCopy').disabled=false;
+  if(canShare){const b=$('shShare');b.hidden=false;b.onclick=async()=>{try{await navigator.share({files:[file],text:shareText()});track('share',{grade:R.grade,score:R.score})}catch(e){if(e&&e.name!=='AbortError')gToast('這裡不能直接分享，請改用複製文案或儲存圖片')}}}
 }
 
 /* ================= SOUND (synthesised chiptune, no files) ================= */
