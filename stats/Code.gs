@@ -14,28 +14,7 @@ const STATS = '統計';
 const HEADERS = ['時間', '事件', '玩家代號', '成績', '總分', '人數', '題目', '報告進度', '組內氣氛', '專長完整度', '退組人數', '裝置', '版本', '來源', '來源網域'];
 const EVENTS = ['visit', 'start', 'finish', 'share'];
 
-function doPost(e) {
-  const lock = LockService.getScriptLock();
-  lock.tryLock(5000);
-  try {
-    const d = JSON.parse((e && e.postData && e.postData.contents) || '{}');
-    if (EVENTS.indexOf(d.event) < 0) return out_('ignored');
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sh = ss.getSheetByName(RAW) || setup();
-    sh.appendRow([
-      new Date(), d.event, clip_(d.sid, 40), clip_(d.grade, 3), num_(d.score), num_(d.size),
-      clip_(d.topic, 30), num_(d.progress), num_(d.mood), num_(d.coverage), num_(d.quits),
-      clip_(d.device, 10), clip_(d.version, 10), clip_(d.source, 24), clip_(d.ref, 60)
-    ]);
-    return out_('ok');
-  } catch (err) {
-    return out_('error');
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-// doGet 在「排名功能.gs」裡（含即時排名）。
+// doPost 和 doGet 都在「排名功能.gs」裡（依欄位名稱寫入、即時排名、最新戰報）。
 
 function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();

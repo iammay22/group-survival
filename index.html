@@ -187,6 +187,30 @@ button{touch-action:manipulation}
 .sharebar-row .btn{flex:1;text-align:center;text-decoration:none}
 .btn.wait{opacity:.45;pointer-events:none}
 .sharetext{width:100%;font-family:var(--zh);font-size:14px;padding:8px;border:2px solid var(--ink);background:#fff;color:var(--ink);user-select:text;-webkit-user-select:text}
+.board{display:flex;flex-direction:column;gap:8px}
+.board-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.board-head h4{margin:0;font-size:17px;font-weight:900}
+.board-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr;gap:6px}
+@media (min-width:720px){.board-list{grid-template-columns:1fr 1fr}.board-list .me,.board-list .bempty{grid-column:1/-1}}
+.brow{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:8px 10px;background:#fff;border:2px solid var(--ink);animation:bin .35s ease-out both;min-width:0}
+.brow.me{background:#fff8e0;border-width:3px;box-shadow:3px 3px 0 var(--gold)}
+.brow.sk{height:58px;border-style:dashed;border-color:var(--muted);background:linear-gradient(100deg,var(--floor) 30%,#fff 50%,var(--floor) 70%);background-size:300% 100%;animation:shimmer 1.2s linear infinite}
+.gbadge{font-family:var(--px);font-size:13px;min-width:42px;text-align:center;padding:8px 4px;border:2px solid var(--ink)}
+.bmain{display:flex;flex-direction:column;min-width:0;line-height:1.35}
+.bmain small b{color:var(--ink);font-weight:900}
+.youtag{font-style:normal;font-size:12px;background:var(--ink);color:#fff;padding:1px 6px;margin-right:4px;vertical-align:1px}
+.board-head h4 small{font-weight:700}
+.btitle{font-weight:900;font-size:15px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bmain small{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bago{font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap}
+.bempty{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 12px;border:2px dashed var(--ink);background:var(--floor);font-weight:700;font-size:14px}
+@keyframes bin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.ticker{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--ink);color:#fff;font-size:13px;font-weight:700;overflow:hidden;min-width:0}
+.tk-live{font-family:var(--px);font-size:9px;background:var(--bad);color:#fff;padding:3px 5px;flex:none;animation:hintpulse 1.4s ease-in-out infinite}
+.tk-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tk-ago{flex:none;color:#d8d2f0;font-size:12px}
+.ticker.tk-in .tk-text{animation:bin .35s ease-out both}
+@media (prefers-reduced-motion:reduce){.brow,.ticker.tk-in .tk-text,.tk-live,.brow.sk{animation:none}}
 .gtoast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:30;background:var(--ink);color:#fff;padding:10px 16px;font-weight:700;font-size:14px;box-shadow:3px 3px 0 var(--gold);max-width:calc(100% - 32px);text-align:center}
 @media (prefers-reduced-motion:reduce){.stamp,.presshint,.skeleton{animation:none}}
 .credit{text-align:center;font-size:12px;color:var(--muted);margin:4px 0 0}
@@ -670,7 +694,8 @@ function briefHTML(){
     <dt>你擅長</dt><dd>${skChip(S.mySkill,S.req.includes(S.mySkill)?'ok':'')}</dd></dl>`;
 }
 function showIntro(){
-  openModal(`<div class="who"><div class="pf"><img alt="教授" src="${portrait(TEACHER_LOOK)}"></div>
+  openModal(`<div class="ticker" id="ticker" hidden><span class="tk-live">LIVE</span><span class="tk-text"></span><span class="tk-ago"></span></div>
+    <div class="who"><div class="pf"><img alt="教授" src="${portrait(TEACHER_LOOK)}"></div>
     <div><div class="eyebrow">教授</div><h2>期末專題開始分組！</h2></div></div>
     ${briefHTML()}
     <ol class="rules">
@@ -681,7 +706,8 @@ function showIntro(){
     </ol>
     <p class="clue">分好組後有一整學期的挑戰：分工配對、喬開會時間、處理雷組員、派人解決突發狀況、期末衝刺，最後還要上台報告。這次 A+ 不好拿喔。</p>
     <div class="acts row"><button class="btn pri" id="goRecruit" type="button">開始找組員</button></div>`);
-  $('goRecruit').onclick=()=>{closeModal();SFX.play('start');track('start',{size:S.size,topic:S.topic.n});SFX.bgm(true);S.phase='recruit';S.last=performance.now();
+  startTicker();
+  $('goRecruit').onclick=()=>{clearInterval(tickerT);closeModal();SFX.play('start');track('start',{size:S.size,topic:S.topic.n});SFX.bgm(true);S.phase='recruit';S.last=performance.now();
     if(innerWidth<760)$('hud').scrollIntoView({block:'start',behavior:'smooth'});setTimeout(setup,350);setup()};
 }
 function openEncounter(n,approached){
@@ -1020,7 +1046,7 @@ function finale(){
   if(!aplus){if(score<94)why.push(`總分要 94 分以上（目前 ${score}）`);if(missing.length)why.push('缺少能用的專長：'+missing.map(k=>SKILLS[k]).join('、'));if(quits)why.push('有組員退組');if(S.M<70)why.push(`組內氣氛要 70 以上（目前 ${Math.round(S.M)}）`)}
   S.result={grade:g[0],line:g[1],score,sP,sM,sC,covN,covT:S.req.length,quits,pct:null};
   S.result.title=pickTitle(S.result);
-  track('finish',{grade:g[0],score,size:S.size,topic:S.topic.n,progress:Math.round(S.P),mood:Math.round(S.M),coverage:sC,quits});
+  track('finish',{title:S.result.title.name,grade:g[0],score,size:S.size,topic:S.topic.n,progress:Math.round(S.P),mood:Math.round(S.M),coverage:sC,quits});
   $('roundtag').textContent='FINAL · 上台報告 · '+S.topic.n;
   setTimeout(()=>SFX.play(aplus?'aplus':score>=76?'pass':'fail'),200);
   const others=S.npcs.filter(n=>!S.team.includes(n));others.forEach(n=>dex.add(n.key));saveDex();
@@ -1030,6 +1056,7 @@ function finale(){
     <div class="final"><div class="grade">${g[0]}</div><div><div class="eyebrow">${S.size} 人一組 · 最終分數 ${score} / 100</div><h3>${esc(g[1])}</h3></div></div>
     <div class="stamp-wrap"><span class="eyebrow">你的稱號</span><span class="stamp">【${esc(T.name)}】</span><p class="roast">${esc(T.roast)}</p></div>
     <div class="pct" aria-live="polite"><span>擊敗了</span><b><span id="pctNum">…</span>%</b><span>的分組受難者</span><small id="pctNote">排名計算中…</small></div>
+    <section class="board" aria-labelledby="boardH"><div class="board-head"><h4 id="boardH">最新戰報 <small class="note">其他玩家匿名顯示</small></h4><button class="btn sm" type="button" id="boardRefresh">更新</button></div><ol class="board-list" id="boardList"></ol></section>
     <div class="sharezone">
       <div class="cardbox" id="cardBox"><div class="skeleton" aria-label="圖卡產生中"><span>成績圖卡產生中…</span></div></div>
       <div class="sharebar" id="shareBar">
@@ -1048,9 +1075,9 @@ function finale(){
     <div class="acts row"><button class="btn pri" id="again" type="button">再玩一次</button><button class="btn" id="seeDex" type="button">看組員圖鑑</button></div>
     <p class="credit">分組求生記・遊戲設計 <b>may22</b></p></div>`;
   $('card').scrollIntoView({block:'start',behavior:'smooth'});
-  $('again').onclick=restart;$('seeDex').onclick=openDex;$('shCopy').onclick=copyShareText;
+  $('again').onclick=restart;$('seeDex').onclick=openDex;$('shCopy').onclick=copyShareText;$('boardRefresh').onclick=()=>renderBoard(true);
   $('shSave').addEventListener('click',e=>{if($('shSave').classList.contains('wait'))e.preventDefault()});
-  fillSocial();
+  fillSocial().then(()=>renderBoard());
 }
 function restart(){
   stopMG();SFX.bgm(false);
@@ -1102,7 +1129,7 @@ const SID=(()=>{try{let v=localStorage.getItem('gs-sid');if(!v){v=Math.random().
 function track(event,data){
   if(!STATS_URL||!/github\.io$/.test(location.hostname))return;
   try{
-    const body=JSON.stringify(Object.assign({event,sid:SID,device:matchMedia('(pointer:coarse)').matches?'手機平板':'電腦',version:'v8',source:TRAFFIC.source,ref:TRAFFIC.ref},data||{}));
+    const body=JSON.stringify(Object.assign({event,sid:SID,device:matchMedia('(pointer:coarse)').matches?'手機平板':'電腦',version:'v9',source:TRAFFIC.source,ref:TRAFFIC.ref},data||{}));
     fetch(STATS_URL,{method:'POST',mode:'no-cors',keepalive:true,headers:{'Content-Type':'text/plain;charset=utf-8'},body}).catch(()=>{});
   }catch(e){}
 }
@@ -1113,18 +1140,56 @@ const SHARE_URL=`https://${GAME_URL}/?src=share`;
 const GRADE_COLOR={'A+':'#ffcf4d','A':'#7fd3ae','B':'#b9a6f2','C':'#ffb38a','F':'#ff6f6f'};
 /* snapshot of 304 finished games (2026-11-13), used when the live ranking can't be fetched */
 const SCORE_SNAPSHOT={n:304,hist:[[30,1],[37,1],[42,1],[48,1],[51,1],[53,1],[54,1],[55,2],[56,1],[59,2],[60,1],[62,4],[63,3],[64,3],[65,6],[66,5],[67,2],[68,4],[69,4],[70,4],[71,3],[72,3],[73,2],[74,2],[75,3],[76,4],[77,6],[78,8],[79,5],[80,6],[81,2],[82,2],[83,7],[84,7],[85,4],[86,6],[87,10],[88,12],[89,10],[90,8],[91,9],[92,13],[93,9],[94,9],[95,9],[96,8],[97,14],[98,18],[99,36],[100,21]]};
-let distCache=null;
-async function getDist(){
-  if(distCache)return distCache;
-  if(STATS_URL&&/github\.io$/.test(location.hostname)){
+let board=null,boardAt=0,boardReq=null;
+/* one request returns the score distribution and the 5 latest finished games; null when unreachable */
+function fetchBoard(force){
+  if(!force&&board&&Date.now()-boardAt<60000)return Promise.resolve(board);
+  if(boardReq&&!force)return boardReq;
+  if(!STATS_URL||!/github\.io$/.test(location.hostname))return Promise.resolve(null);
+  boardReq=(async()=>{
     try{
-      const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),3500);
-      const r=await fetch(STATS_URL+'?scores=1',{signal:ctl.signal});clearTimeout(t);
+      const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),4000);
+      const r=await fetch(STATS_URL+'?scores=1&t='+Date.now(),{signal:ctl.signal,cache:'no-store'});clearTimeout(t);
       const d=await r.json();
-      if(d&&d.n>=30&&Array.isArray(d.hist)){distCache=d;return d}
+      if(d&&Array.isArray(d.hist)){board=d;boardAt=Date.now();return d}
     }catch(e){}
+    return null;
+  })().finally(()=>{boardReq=null});
+  return boardReq;
+}
+async function getDist(){const d=await fetchBoard();return d&&d.n>=30?d:SCORE_SNAPSHOT}
+const GRADE_TEXT={'A+':'#2b2440','A':'#2b2440','B':'#2b2440','C':'#2b2440','F':'#ffffff'};
+function ago(t){if(!t)return '';const m=Math.floor((Date.now()-t)/60000);if(m<1)return '剛剛';if(m<60)return `${m} 分鐘前`;const h=Math.floor(m/60);if(h<24)return `${h} 小時前`;return `${Math.floor(h/24)} 天前`}
+function boardRow(r,me){
+  const g=GRADE_COLOR[r.grade]?r.grade:'?';
+  return `<li class="brow${me?' me':''}"><span class="gbadge" style="background:${GRADE_COLOR[g]||'#efe7ff'};color:${GRADE_TEXT[g]||'#2b2440'}">${esc(g)}</span>
+    <span class="bmain"><span class="btitle">${me?'<i class="youtag">你</i>':''}【${esc(r.title||'分組倖存者')}】</span>
+    <small><b>${esc(String(r.score))} 分</b>${r.size?'・'+esc(String(r.size))+' 人一組':''}${r.topic?'・'+esc(r.topic):''}</small></span><span class="bago">${me?'這一局':esc(ago(r.t))}</span></li>`;
+}
+async function renderBoard(force){
+  const box=$('boardList');if(!box)return;
+  box.innerHTML=`<li class="brow sk"></li><li class="brow sk"></li><li class="brow sk"></li>`;
+  const d=await fetchBoard(force);if(!$('boardList'))return;
+  const R=S.result,mine={grade:R.grade,score:R.score,title:R.title.name,size:S.size,topic:S.topic.n};
+  if(!d||!Array.isArray(d.recent)){
+    box.innerHTML=`${boardRow(mine,true)}<li class="bempty">暫時看不到其他玩家的成績。<button class="btn sm" type="button" id="boardRetry">重試</button></li>`;
+    $('boardRetry').onclick=()=>renderBoard(true);return;
   }
-  return SCORE_SNAPSHOT;
+  let skipped=false;
+  const others=d.recent.filter(r=>{if(!skipped&&r.score===mine.score&&r.grade===mine.grade&&r.size===mine.size&&r.topic===mine.topic&&(!r.title||r.title===mine.title)&&r.t&&Date.now()-r.t<180000){skipped=true;return false}return true}).slice(0,5);
+  box.innerHTML=boardRow(mine,true)+(others.length?others.map(r=>boardRow(r,false)).join(''):'<li class="bempty">你是今天第一位倖存者！</li>');
+}
+/* start-screen ticker */
+let tickerT=null;
+function tickerLine(r){const who='有人';const t=r.title?`【${r.title}】`:'';
+  return r.grade==='A+'?`剛剛${who}拿到 A+！${t}${r.score} 分`:r.grade==='F'?`${who}被雷到 F……${t}${r.score} 分`:`${who}拿到 ${r.grade}${t}${r.score} 分`}
+async function startTicker(){
+  clearInterval(tickerT);const el=$('ticker');if(!el)return;
+  const d=await fetchBoard();const live=$('ticker');if(!live)return;
+  const items=d&&Array.isArray(d.recent)?d.recent.filter(r=>r.grade):[];
+  if(!items.length){live.hidden=true;return}
+  let i=0;const show=()=>{const r=items[i%items.length];live.querySelector('.tk-text').textContent=tickerLine(r);live.querySelector('.tk-ago').textContent=ago(r.t);live.classList.remove('tk-in');void live.offsetWidth;live.classList.add('tk-in');i++};
+  live.hidden=false;show();if(items.length>1)tickerT=setInterval(()=>{if(!$('ticker')){clearInterval(tickerT);return}show()},3200);
 }
 function percentile(score,d){
   let below=0,eq=0;d.hist.forEach(([s,c])=>{if(s<score)below+=c;else if(s===score)eq+=c});
@@ -1298,7 +1363,7 @@ $('soundBtn').onclick=()=>{SFX.toggle();renderSoundBtn();if(SFX.on){SFX.play('go
 document.addEventListener('click',e=>{if(e.target.closest('.btn,.pick')&&e.target.id!=='soundBtn')SFX.play('click')},true);
 
 /* ================= BOOT ================= */
-newGame();setup();renderSoundBtn();track('visit');
+newGame();setup();renderSoundBtn();track('visit');fetchBoard();
 (document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(drawBG);
 showIntro();
 requestAnimationFrame(t=>{S.last=t;loop(t)});
