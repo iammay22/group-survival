@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&family=Press+Start+2P&display=swap">
 <style>
-/* Layout: pixel classroom stage at an integer scale, HUD above, touch joystick in its own strip below (never over the game), chunky pixel-box sheets for dialogs and mini-games. Single deliberate pastel look. */
+/* Layout: pixel classroom stage at an integer scale, HUD above, tap-to-move only (no joystick, no keys), chunky pixel-box sheets for dialogs and mini-games. Single deliberate pastel look. */
 :root{
   --ink:#2b2440; --muted:#655e80; --bg:#d9e1ff; --panel:#fbfaff; --floor:#efe7ff;
   --peach:#ffb38a; --lilac:#b9a6f2; --mint:#7fd3ae; --bad:#ff6f6f; --good:#2fae7d; --gold:#ffcf4d;
@@ -66,20 +66,8 @@ button{touch-action:manipulation}
 .btn[disabled]{opacity:.45;cursor:not-allowed;transform:none;box-shadow:3px 3px 0 var(--ink)}
 .stage{position:relative;padding:0;line-height:0;background:#e8c796;display:flex;justify-content:center;overflow:hidden}
 #cv{display:block;max-width:100%;image-rendering:pixelated;image-rendering:crisp-edges;cursor:pointer;touch-action:none}
-.hint{font-size:13px;color:var(--muted);margin:0}
+.hint{font-size:13px;color:var(--muted);margin:0;text-align:center}
 .toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:6px 12px;font-size:13px;line-height:1.4;font-weight:700;pointer-events:none;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis;z-index:3}
-/* joystick strip: sits below the stage, never on top of it */
-.ctrl{display:none;align-items:center;gap:16px;padding:10px 12px}
-@media (pointer:coarse),(max-width:760px){.ctrl{display:flex} .hint{display:none}}
-.joy{width:128px;height:128px;flex:none;position:relative;border:3px solid var(--ink);background:var(--floor);touch-action:none;cursor:pointer;
-  background-image:linear-gradient(var(--lilac),var(--lilac)),linear-gradient(var(--lilac),var(--lilac));background-size:100% 4px,4px 100%;background-position:center;background-repeat:no-repeat}
-.joy i{position:absolute;font-style:normal;font-size:11px;line-height:1;color:var(--muted);pointer-events:none}
-.joy .au{top:6px;left:50%;transform:translateX(-50%)} .joy .ad{bottom:6px;left:50%;transform:translateX(-50%)}
-.joy .al{left:6px;top:50%;transform:translateY(-50%)} .joy .ar{right:6px;top:50%;transform:translateY(-50%)}
-.knob{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;background:var(--peach);border:3px solid var(--ink);box-shadow:2px 2px 0 var(--ink);pointer-events:none}
-.joy.on .knob{background:var(--gold)}
-.ctrl-tip{margin:0;font-size:13px;color:var(--muted);min-width:0;line-height:1.5}
-.ctrl-tip b{color:var(--ink)}
 /* modal */
 .modal{position:fixed;inset:0;z-index:20;background:rgba(43,36,64,.45);display:flex;align-items:flex-end;justify-content:center;
   padding:12px max(12px,env(safe-area-inset-right,0px)) max(12px,env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));overflow:auto}
@@ -97,6 +85,8 @@ button{touch-action:manipulation}
 .acts.row{flex-direction:row;flex-wrap:wrap}
 .tag{display:inline-block;font-size:12px;font-weight:900;padding:2px 8px;border:2px solid var(--ink);margin-right:6px;vertical-align:2px}
 .tag.bad{background:var(--bad);color:#fff} .tag.good{background:var(--good);color:#fff} .tag.mg{background:var(--gold)}
+.howto{display:flex;flex-direction:column;gap:2px;padding:10px 12px;background:var(--floor);border:2px solid var(--ink);font-size:14px}
+.howto b{font-weight:900}
 .rules{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
 .brief{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:10px 12px;background:#fff;border:2px solid var(--ink);font-size:14px;align-items:center}
 .brief dt{font-weight:900;color:var(--muted);font-size:13px}
@@ -255,14 +245,10 @@ button{touch-action:manipulation}
       <div class="topic" id="topicBar"></div>
     </div>
     <div class="stage box" id="stage">
-      <canvas id="cv" aria-label="像素教室，可以走動找組員"></canvas>
+      <canvas id="cv" aria-label="像素教室，點地板移動，點同學去找他"></canvas>
       <div class="toast" id="toast" hidden></div>
     </div>
-    <div class="ctrl box" id="ctrl">
-      <div class="joy" id="joy" aria-label="移動搖桿"><i class="au">▲</i><i class="ad">▼</i><i class="al">◀</i><i class="ar">▶</i><span class="knob" id="knob"></span></div>
-      <p class="ctrl-tip"><b>拖動搖桿</b>走路，可以斜著走。<br>也可以<b>直接點畫面</b>，會自動繞過桌子走過去。<br>碰到同學就會開始對話。</p>
-    </div>
-    <p class="hint" id="hint">方向鍵或 WASD 移動，也可以直接點畫面，角色會自動繞過桌子走過去。碰到同學就會開始對話。</p>
+    <p class="hint" id="hint">點地板走過去，點同學就會走去找他聊。</p>
     <div class="proj box" id="proj" hidden>
       <div class="bars">
         <div class="bar"><div class="bl"><span>報告進度</span><b id="vP">0</b></div><div class="meter" id="mP"><i></i></div></div>
@@ -556,14 +542,13 @@ function newGame(){
     player:{x:160,y:182,dir:'up',moving:false,step:0,path:null,chase:null,repath:0},team:[],trail:[{x:160,y:182,dir:'up'}],approachIn:8,encCd:0,P:0,M:50,queue:[],last:performance.now(),k:1.8/need,mark:null};
   renderSlots();updTimer();renderTopic();drawBG();
 }
-const keys={};
 
-/* ================= SIZING (integer pixel scale, joystick strip below) ================= */
+/* ================= SIZING (integer pixel scale) ================= */
 function setup(){
   const stage=$('stage');const cw=stage.clientWidth||320;
   const vh=(window.visualViewport?visualViewport.height:innerHeight);
-  const ctrl=$('ctrl');const ctrlH=getComputedStyle(ctrl).display==='none'||$('stage').hidden?0:ctrl.offsetHeight+10;
-  const availH=Math.max(200,vh-$('hud').offsetHeight-ctrlH-40);
+  const hintH=$('hint').hidden?0:$('hint').offsetHeight+10;
+  const availH=Math.max(200,vh-$('hud').offsetHeight-hintH-40);
   let s=clamp(Math.floor(cw/250),2,4);
   while(s>2&&availH/s<120)s--;
   SC=s;VW=Math.min(320,Math.floor(cw/s));VH=clamp(Math.floor(availH/s),110,192);
@@ -581,14 +566,7 @@ function update(dt){
   if(live){
     S.timeLeft-=dt;if(S.timeLeft<=0){S.timeLeft=0;updTimer();timeUp();return}
     updTimer();
-    let ix=0,iy=0;
-    if(keys.l)ix--;if(keys.r)ix++;if(keys.u)iy--;if(keys.d)iy++;
-    if(joy.on&&(joy.x||joy.y)){ix=joy.x;iy=joy.y}
-    const mag=Math.min(1,Math.hypot(ix,iy));
-    if(mag>.01){
-      p.path=null;p.chase=null;S.mark=null;
-      const n=Math.hypot(ix,iy);p.moving=stepMove(p,ix/n*mag*SPEED*dt,iy/n*mag*SPEED*dt);
-    }else if(p.path){
+    if(p.path){
       if(p.chase){p.repath-=dt;if(p.repath<=0){p.repath=.3;p.path=findPath(p.x,p.y,p.chase.x,p.chase.y+1)}}
       p.moving=followPath(p,SPEED,dt);
       if(!p.path||!p.path.length){p.path=null;S.mark=null}
@@ -650,26 +628,9 @@ function loop(now){
 }
 
 /* ================= INPUT ================= */
-const KM={ArrowLeft:'l',a:'l',A:'l',ArrowRight:'r',d:'r',D:'r',ArrowUp:'u',w:'u',W:'u',ArrowDown:'d',s:'d',S:'d'};
 addEventListener('keydown',e=>{
-  if(S.qte&&(e.key===' '||e.key==='Enter')){e.preventDefault();S.qte();return}
-  if(modalOpen())return;const k=KM[e.key];if(k&&S.phase==='recruit'){keys[k]=true;if(e.key.startsWith('Arrow'))e.preventDefault()}});
-addEventListener('keyup',e=>{const k=KM[e.key];if(k)keys[k]=false});
-addEventListener('blur',clearKeys);
-const joy={on:false,x:0,y:0,id:null};
-const J=$('joy'),KN=$('knob');
-function joyMove(e){
-  const r=J.getBoundingClientRect(),R=r.width/2-12;
-  let dx=(e.clientX-r.left-r.width/2)/R,dy=(e.clientY-r.top-r.height/2)/R;const m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m}
-  const dead=m<.18;joy.x=dead?0:dx;joy.y=dead?0:dy;
-  KN.style.transform=`translate(${Math.round(dx*(r.width/2-28))}px,${Math.round(dy*(r.height/2-28))}px)`;
-}
-function joyEnd(){joy.on=false;joy.x=joy.y=0;KN.style.transform='';J.classList.remove('on')}
-J.addEventListener('pointerdown',e=>{e.preventDefault();if(S.phase!=='recruit'||modalOpen())return;joy.on=true;joy.id=e.pointerId;J.classList.add('on');try{J.setPointerCapture(e.pointerId)}catch(_){}joyMove(e)});
-J.addEventListener('pointermove',e=>{if(joy.on&&e.pointerId===joy.id){e.preventDefault();joyMove(e)}});
-['pointerup','pointercancel','lostpointercapture'].forEach(t=>J.addEventListener(t,joyEnd));
-J.addEventListener('contextmenu',e=>e.preventDefault());
-function clearKeys(){for(const k in keys)keys[k]=false;joyEnd()}
+  if(S.qte&&(e.key===' '||e.key==='Enter')){e.preventDefault();S.qte()}});
+function clearKeys(){if(!S||!S.player)return;S.player.path=null;S.player.chase=null;S.mark=null}
 cv.addEventListener('pointerdown',e=>{
   if(S.phase!=='recruit'||modalOpen())return;
   const r=cv.getBoundingClientRect();const [camX,camY]=cam();
@@ -708,6 +669,7 @@ function showIntro(){
     <div class="who"><div class="pf"><img alt="教授" src="${portrait(TEACHER_LOOK)}"></div>
     <div><div class="eyebrow">教授</div><h2>期末專題開始分組！</h2></div></div>
     ${briefHTML()}
+    <div class="howto"><b>怎麼玩</b><span>👆 點地板：走過去，會自動繞過桌子</span><span>👆 點同學：走過去找他聊天</span></div>
     <ol class="rules">
       <li>在教室走動找組員，<b>${Math.round(S.timeLeft)} 秒</b>內找齊 ${S.need} 位。</li>
       <li>頭上有 <b>!</b> 的同學會主動來找你。</li>
@@ -773,7 +735,7 @@ function skillMul(m){
 function gain(m,p){return p>0?Math.round(p*S.k*skillMul(m)):Math.round(p*Math.max(1,S.k*.8))}
 function startProject(){
   S.phase='project';clearKeys();SFX.bgm(false);SFX.play('start');
-  ['stage','hint','hud','ctrl'].forEach(id=>$(id).hidden=true);$('proj').hidden=false;
+  ['stage','hint','hud'].forEach(id=>$(id).hidden=true);$('proj').hidden=false;
   S.queue=[];
   const evSkills=shuffle(S.req);
   S.queue.push({kind:'round',ri:0},{kind:'assign'});
@@ -1091,7 +1053,7 @@ function finale(){
 }
 function restart(){
   stopMG();SFX.bgm(false);
-  $('proj').hidden=true;['stage','hint','hud','ctrl'].forEach(id=>$(id).hidden=false);
+  $('proj').hidden=true;['stage','hint','hud'].forEach(id=>$(id).hidden=false);
   newGame();setup();showIntro();
   window.scrollTo({top:0,behavior:'smooth'});
 }
